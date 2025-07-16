@@ -8,35 +8,61 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Educational platform color scheme */
+    --background: 240 10% 99%;
+    --foreground: 222 15% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 15% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 15% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Professional education blue */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 217 91% 55%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Soft gray for secondary actions */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 15% 15%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted backgrounds */
+    --muted: 220 13% 95%;
+    --muted-foreground: 215 20% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Success green for correct answers, completed tasks */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Warning amber for review items */
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Accent purple for AI features */
+    --accent: 263 85% 65%;
+    --accent-foreground: 0 0% 100%;
 
-    --radius: 0.5rem;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 60%;
+
+    --radius: 0.75rem;
+
+    /* Educational gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(220 85% 65%));
+    --gradient-accent: linear-gradient(135deg, hsl(263 85% 65%), hsl(280 85% 70%));
+    --gradient-success: linear-gradient(135deg, hsl(142 71% 45%), hsl(160 70% 50%));
+    
+    /* Shadows for depth */
+    --shadow-elegant: 0 10px 30px -10px hsl(217 91% 60% / 0.2);
+    --shadow-card: 0 4px 12px -2px hsl(222 15% 15% / 0.08);
+    
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 0 0% 98%;
 
