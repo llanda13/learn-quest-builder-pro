@@ -28,6 +28,7 @@ export interface TOSConfig {
 export interface TOSData extends TOSConfig {
   distribution: {
     [topicName: string]: {
+      hours: number
       total: number
       remembering: number[]
       understanding: number[]
@@ -112,6 +113,7 @@ const TOS = () => {
       }
 
       distribution[topic.name] = {
+        hours: topic.hours,
         total: topicItems,
         remembering: generateItemNumbers(adjustedCounts.remembering),
         understanding: generateItemNumbers(adjustedCounts.understanding),

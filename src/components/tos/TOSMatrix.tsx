@@ -9,26 +9,17 @@ interface TOSMatrixProps {
 
 export function TOSMatrix({ data }: TOSMatrixProps) {
   const bloomLevels = [
-    { key: 'remembering', label: 'Remembering', difficulty: 'Easy' },
-    { key: 'understanding', label: 'Understanding', difficulty: 'Easy' },
-    { key: 'applying', label: 'Applying', difficulty: 'Average' },
-    { key: 'analyzing', label: 'Analyzing', difficulty: 'Average' },
-    { key: 'evaluating', label: 'Evaluating', difficulty: 'Difficult' },
-    { key: 'creating', label: 'Creating', difficulty: 'Difficult' }
+    { key: 'remembering', label: 'Remembering', difficulty: 'Easy', percentage: '15%' },
+    { key: 'understanding', label: 'Understanding', difficulty: 'Easy', percentage: '15%' },
+    { key: 'applying', label: 'Applying', difficulty: 'Average', percentage: '20%' },
+    { key: 'analyzing', label: 'Analyzing', difficulty: 'Average', percentage: '20%' },
+    { key: 'evaluating', label: 'Evaluating', difficulty: 'Difficult', percentage: '15%' },
+    { key: 'creating', label: 'Creating', difficulty: 'Difficult', percentage: '15%' }
   ] as const
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'Easy': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-      case 'Average': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-      case 'Difficult': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
-    }
-  }
-
   const formatItemNumbers = (items: number[]) => {
-    if (items.length === 0) return '-'
-    if (items.length === 1) return items[0].toString()
+    if (items.length === 0) return ''
+    if (items.length === 1) return `(${items[0]})`
     
     // Group consecutive numbers
     const groups: string[] = []
@@ -39,13 +30,13 @@ export function TOSMatrix({ data }: TOSMatrixProps) {
       if (items[i] === end + 1) {
         end = items[i]
       } else {
-        groups.push(start === end ? start.toString() : `${start}-${end}`)
+        groups.push(start === end ? start.toString() : `${start},${end}`)
         start = end = items[i]
       }
     }
-    groups.push(start === end ? start.toString() : `${start}-${end}`)
+    groups.push(start === end ? start.toString() : `${start},${end}`)
     
-    return `(${groups.join(', ')})`
+    return `(${groups.join(',')})`
   }
 
   // Calculate totals for each Bloom level
@@ -58,163 +49,151 @@ export function TOSMatrix({ data }: TOSMatrixProps) {
 
   const grandTotal = Object.values(bloomTotals).reduce((sum, count) => sum + count, 0)
 
+  // Calculate topic percentages based on hours
+  const totalHours = Object.values(data.distribution).reduce((sum, topic) => sum + topic.hours, 0)
+
   return (
-    <div className="space-y-6">
-      {/* Header Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Two-Way Table of Specifications</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-            <div><strong>Subject No.:</strong> {data.subjectNo}</div>
-            <div><strong>Course:</strong> {data.course}</div>
-            <div><strong>Year & Section:</strong> {data.yearSection}</div>
-            <div><strong>Description:</strong> {data.description}</div>
-            <div><strong>Examination Period:</strong> {data.examPeriod}</div>
-            <div><strong>School Year:</strong> {data.schoolYear}</div>
-            <div><strong>Total Test Items:</strong> {data.totalItems}</div>
-            <div><strong>Prepared by:</strong> {data.preparedBy}</div>
-            <div><strong>Noted by:</strong> {data.notedBy}</div>
+    <div className="bg-white text-black print:shadow-none" id="tos-document">
+      {/* Official Document Header */}
+      <div className="border-2 border-black mb-4 print:mb-2">
+        {/* Institution Header */}
+        <div className="flex items-start gap-4 p-4 border-b border-black">
+          <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center text-xs text-center">
+            LOGO
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Bloom's Taxonomy Legend */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Bloom's Taxonomy Distribution</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <div className="font-semibold mb-2">Easy (30%)</div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Badge className={getDifficultyColor('Easy')}>Remembering (15%)</Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge className={getDifficultyColor('Easy')}>Understanding (15%)</Badge>
-                </div>
-              </div>
+          <div className="flex-1">
+            <div className="text-lg font-bold uppercase">
+              AGUSAN DEL SUR STATE COLLEGE OF AGRICULTURE AND TECHNOLOGY
             </div>
-            <div>
-              <div className="font-semibold mb-2">Average (40%)</div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Badge className={getDifficultyColor('Average')}>Applying (20%)</Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge className={getDifficultyColor('Average')}>Analyzing (20%)</Badge>
-                </div>
-              </div>
-            </div>
-            <div>
-              <div className="font-semibold mb-2">Difficult (30%)</div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Badge className={getDifficultyColor('Difficult')}>Evaluating (15%)</Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge className={getDifficultyColor('Difficult')}>Creating (15%)</Badge>
-                </div>
-              </div>
+            <div className="text-sm">
+              Bunawan, Agusan del Sur<br/>
+              website: http://asscat.edu.ph<br/>
+              email address: op@asscat.edu.ph; mobile no.: +639486379266
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="text-right text-sm">
+            <div className="grid grid-cols-2 gap-2 border border-black">
+              <div className="p-1 border-r border-black font-semibold">Doc No.</div>
+              <div className="p-1">F-DOI-009</div>
+              <div className="p-1 border-r border-t border-black font-semibold">Effective Date:</div>
+              <div className="p-1 border-t border-black">{new Date().toLocaleDateString()}</div>
+              <div className="p-1 border-r border-t border-black font-semibold">Rev. No.</div>
+              <div className="p-1 border-t border-black">1</div>
+              <div className="p-1 border-r border-t border-black font-semibold">Page No.</div>
+              <div className="p-1 border-t border-black">1 of 1</div>
+            </div>
+          </div>
+        </div>
 
-      {/* TOS Matrix Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Item Distribution Matrix</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="font-bold">Topics</TableHead>
+        {/* Document Title */}
+        <div className="text-center py-3 bg-gray-100 border-b border-black">
+          <h1 className="text-xl font-bold uppercase">TWO-WAY TABLE OF SPECIFICATION</h1>
+        </div>
+
+        {/* Course Information */}
+        <div className="p-4 space-y-2">
+          <div className="grid grid-cols-2 gap-8">
+            <div className="space-y-1">
+              <div><span className="font-semibold">College:</span> College of Computing and Information Sciences</div>
+              <div><span className="font-semibold">Subject No.:</span> {data.subjectNo}</div>
+              <div><span className="font-semibold">Description:</span> {data.description}</div>
+            </div>
+            <div className="space-y-1">
+              <div><span className="font-semibold">Examination Period:</span> {data.examPeriod}</div>
+              <div><span className="font-semibold">Year and Section:</span> {data.yearSection}</div>
+              <div><span className="font-semibold">Course:</span> {data.course}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Official TOS Table */}
+      <div className="border-2 border-black">
+        <table className="w-full border-collapse">
+          <thead>
+            {/* Main Header Row */}
+            <tr className="bg-gray-100">
+              <th rowSpan={3} className="border border-black p-2 font-bold text-center w-48">TOPIC</th>
+              <th rowSpan={3} className="border border-black p-2 font-bold text-center w-24">NO. OF HOURS</th>
+              <th rowSpan={3} className="border border-black p-2 font-bold text-center w-24">PERCENTAGE</th>
+              <th colSpan={6} className="border border-black p-2 font-bold text-center">COGNITIVE DOMAINS</th>
+              <th rowSpan={3} className="border border-black p-2 font-bold text-center w-24">ITEM PLACEMENT</th>
+              <th rowSpan={3} className="border border-black p-2 font-bold text-center w-20">TOTAL</th>
+            </tr>
+            {/* Difficulty Level Row */}
+            <tr className="bg-gray-100">
+              <th colSpan={2} className="border border-black p-1 font-bold text-center">EASY (30%)</th>
+              <th colSpan={2} className="border border-black p-1 font-bold text-center">AVERAGE (40%)</th>
+              <th colSpan={2} className="border border-black p-1 font-bold text-center">DIFFICULT (30%)</th>
+            </tr>
+            {/* Bloom's Taxonomy Row */}
+            <tr className="bg-gray-100">
+              {bloomLevels.map((level) => (
+                <th key={level.key} className="border border-black p-1 font-bold text-center text-xs">
+                  <div>{level.label}</div>
+                  <div>({level.percentage})</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(data.distribution).map(([topicName, topicData]) => {
+              const topicPercentage = Math.round((topicData.hours / totalHours) * 100);
+              return (
+                <tr key={topicName}>
+                  <td className="border border-black p-2 font-medium">{topicName}</td>
+                  <td className="border border-black p-2 text-center">{topicData.hours} hours</td>
+                  <td className="border border-black p-2 text-center">{topicPercentage}%</td>
                   {bloomLevels.map((level) => (
-                    <TableHead key={level.key} className="text-center font-bold min-w-[120px]">
-                      <div>{level.label}</div>
-                      <Badge className={`${getDifficultyColor(level.difficulty)} text-xs mt-1`}>
-                        {level.difficulty}
-                      </Badge>
-                    </TableHead>
+                    <td key={level.key} className="border border-black p-2 text-center">
+                      <div className="font-semibold">{topicData[level.key].length}</div>
+                      <div className="text-xs mt-1">
+                        {formatItemNumbers(topicData[level.key])}
+                      </div>
+                    </td>
                   ))}
-                  <TableHead className="text-center font-bold">Item Placement</TableHead>
-                  <TableHead className="text-center font-bold">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Object.entries(data.distribution).map(([topicName, topicData]) => (
-                  <TableRow key={topicName}>
-                    <TableCell className="font-medium">{topicName}</TableCell>
-                    {bloomLevels.map((level) => (
-                      <TableCell key={level.key} className="text-center text-sm">
-                        <div className="font-semibold">{topicData[level.key].length}</div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {formatItemNumbers(topicData[level.key])}
-                        </div>
-                      </TableCell>
-                    ))}
-                    <TableCell className="text-center font-semibold text-lg">I</TableCell>
-                    <TableCell className="text-center font-bold">{topicData.total}</TableCell>
-                  </TableRow>
-                ))}
-                
-                {/* Total Row */}
-                <TableRow className="bg-muted/50 font-bold">
-                  <TableCell className="font-bold">TOTAL</TableCell>
-                  {bloomLevels.map((level) => (
-                    <TableCell key={level.key} className="text-center font-bold">
-                      {bloomTotals[level.key]}
-                    </TableCell>
-                  ))}
-                  <TableCell className="text-center font-bold">-</TableCell>
-                  <TableCell className="text-center font-bold text-lg">{grandTotal}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                  <td className="border border-black p-2 text-center font-semibold">I</td>
+                  <td className="border border-black p-2 text-center font-bold">{topicData.total}</td>
+                </tr>
+              );
+            })}
+            
+            {/* Total Row */}
+            <tr className="bg-gray-100 font-bold">
+              <td className="border border-black p-2 font-bold text-center">TOTAL</td>
+              <td className="border border-black p-2 text-center">{totalHours}</td>
+              <td className="border border-black p-2 text-center">100%</td>
+              {bloomLevels.map((level) => (
+                <td key={level.key} className="border border-black p-2 text-center font-bold">
+                  {bloomTotals[level.key]}
+                </td>
+              ))}
+              <td className="border border-black p-2 text-center">-</td>
+              <td className="border border-black p-2 text-center font-bold text-lg">{grandTotal}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-      {/* Summary Statistics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Distribution Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {bloomTotals.remembering + bloomTotals.understanding}
-              </div>
-              <div className="text-sm text-muted-foreground">Easy Items (30%)</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600">
-                {bloomTotals.applying + bloomTotals.analyzing}
-              </div>
-              <div className="text-sm text-muted-foreground">Average Items (40%)</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">
-                {bloomTotals.evaluating + bloomTotals.creating}
-              </div>
-              <div className="text-sm text-muted-foreground">Difficult Items (30%)</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">
-                {grandTotal}
-              </div>
-              <div className="text-sm text-muted-foreground">Total Items</div>
-            </div>
+      {/* Signature Section */}
+      <div className="mt-8 flex justify-between">
+        <div className="text-left">
+          <div className="font-semibold mb-16">Prepared by:</div>
+          <div className="text-center">
+            <div className="border-b border-black w-64 mb-1"></div>
+            <div className="font-bold">{data.preparedBy || 'MICHELLE C. ELAPE, MIT'}</div>
+            <div className="text-sm italic">Instructor</div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="text-right">
+          <div className="font-semibold mb-16">Noted:</div>
+          <div className="text-center">
+            <div className="border-b border-black w-64 mb-1"></div>
+            <div className="font-bold">{data.notedBy || 'JEANIE R. DELOS ARCOS, MIT'}</div>
+            <div className="text-sm italic">Associate Dean</div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
