@@ -8,6 +8,8 @@ import { Separator } from "@/components/ui/separator"
 import { FileText, Plus, Download, Eye } from "lucide-react"
 import { TOSMatrix } from "@/components/tos/TOSMatrix"
 import { TOSForm } from "@/components/tos/TOSForm"
+import { TestGenerator } from "@/components/tos/TestGenerator"
+import { GeneratedTest, TestQuestion } from "@/components/tos/GeneratedTest"
 
 export interface TOSConfig {
   subjectNo: string
@@ -59,7 +61,8 @@ const TOS = () => {
   })
 
   const [tosData, setTosData] = useState<TOSData | null>(null)
-  const [currentStep, setCurrentStep] = useState<'form' | 'matrix'>('form')
+  const [testQuestions, setTestQuestions] = useState<TestQuestion[]>([])
+  const [currentStep, setCurrentStep] = useState<'form' | 'matrix' | 'generating' | 'test'>('form')
 
   const handleGenerateTOS = (config: TOSConfig) => {
     // Calculate total hours
@@ -137,6 +140,23 @@ const TOS = () => {
     setCurrentStep('form')
   }
 
+  const handleGenerateQuestions = () => {
+    setCurrentStep('generating')
+  }
+
+  const handleTestGenerated = (questions: TestQuestion[]) => {
+    setTestQuestions(questions)
+    setCurrentStep('test')
+  }
+
+  const handleCancelGeneration = () => {
+    setCurrentStep('matrix')
+  }
+
+  const handleBackToTOS = () => {
+    setCurrentStep('matrix')
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -150,13 +170,15 @@ const TOS = () => {
         </p>
       </div>
 
-      {currentStep === 'form' ? (
+      {currentStep === 'form' && (
         <TOSForm 
           config={tosConfig}
           onConfigChange={setTosConfig}
           onGenerate={handleGenerateTOS}
         />
-      ) : (
+      )}
+
+      {currentStep === 'matrix' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <Button 
@@ -175,7 +197,7 @@ const TOS = () => {
                 <Download className="w-4 h-4" />
                 Export PDF
               </Button>
-              <Button className="gap-2">
+              <Button onClick={handleGenerateQuestions} className="gap-2">
                 <Plus className="w-4 h-4" />
                 Generate Questions
               </Button>
@@ -184,6 +206,22 @@ const TOS = () => {
           
           {tosData && <TOSMatrix data={tosData} />}
         </div>
+      )}
+
+      {currentStep === 'generating' && tosData && (
+        <TestGenerator 
+          tosData={tosData}
+          onTestGenerated={handleTestGenerated}
+          onCancel={handleCancelGeneration}
+        />
+      )}
+
+      {currentStep === 'test' && tosData && testQuestions.length > 0 && (
+        <GeneratedTest 
+          tosData={tosData}
+          testQuestions={testQuestions}
+          onBack={handleBackToTOS}
+        />
       )}
     </div>
   )
