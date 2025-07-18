@@ -31,7 +31,7 @@ const menuItems = [
   },
   { 
     title: "Question Bank", 
-    href: "/questions", 
+    href: "/question-bank", 
     icon: HelpCircle,
     description: "Manage test questions" 
   },
