@@ -1,171 +1,176 @@
-import { 
-  FileText, 
-  HelpCircle, 
-  ClipboardList, 
-  Users, 
-  TrendingUp, 
-  Brain,
-  Award,
-  Target
-} from "lucide-react"
-import { StatsCard } from "@/components/dashboard/StatsCard"
-import { QuickActions } from "@/components/dashboard/QuickActions"
-import { RecentActivity } from "@/components/dashboard/RecentActivity"
+import { useState } from "react";
+import { Header } from "@/components/Header";
+import { HeroSection } from "@/components/HeroSection";
+import { AuthForm } from "@/components/AuthForm";
+import { Dashboard } from "@/components/Dashboard";
+import { TOSBuilder } from "@/components/TOSBuilder";
+import { QuestionBank } from "@/components/QuestionBank";
+import { TestGenerator } from "@/components/TestGenerator";
+import { AIApprovalWorkflow } from "@/components/AIApprovalWorkflow";
+import { RubricManager } from "@/components/RubricManager";
+import { MultiVersionTestGenerator } from "@/components/MultiVersionTestGenerator";
+import { CollaborativeQuestionBank } from "@/components/CollaborativeQuestionBank";
+import { EssayGradingInterface } from "@/components/EssayGradingInterface";
+import { toast } from "sonner";
 
 const Index = () => {
-  const stats = [
-    {
-      title: "Total Questions",
-      value: "1,247",
-      description: "Across all subjects",
-      icon: HelpCircle,
-      trend: { value: 12, isPositive: true }
-    },
-    {
-      title: "Table of Specifications",
-      value: "23",
-      description: "Active blueprints",
-      icon: FileText,
-      trend: { value: 8, isPositive: true },
-      gradient: true
-    },
-    {
-      title: "Tests Generated",
-      value: "156",
-      description: "This month",
-      icon: ClipboardList,
-      trend: { value: 23, isPositive: true }
-    },
-    {
-      title: "Active Users",
-      value: "18",
-      description: "Teachers & admins",
-      icon: Users,
-      trend: { value: 5, isPositive: true }
-    },
-  ]
+  const [currentView, setCurrentView] = useState<'landing' | 'auth' | 'dashboard' | 'tos-builder' | 'question-bank' | 'test-generator' | 'ai-approval' | 'rubric-manager' | 'multi-version-test' | 'collaborative-questions' | 'essay-grading'>('landing');
+  const [user, setUser] = useState<{
+    isAuthenticated: boolean;
+    role?: 'admin' | 'teacher';
+    name?: string;
+    email?: string;
+  }>({
+    isAuthenticated: false
+  });
 
-  const bloomsDistribution = [
-    { level: "Remember", count: 187, percentage: 15, color: "bg-blue-500" },
-    { level: "Understand", count: 312, percentage: 25, color: "bg-green-500" },
-    { level: "Apply", count: 249, percentage: 20, color: "bg-yellow-500" },
-    { level: "Analyze", count: 187, percentage: 15, color: "bg-orange-500" },
-    { level: "Evaluate", count: 156, percentage: 12.5, color: "bg-red-500" },
-    { level: "Create", count: 156, percentage: 12.5, color: "bg-purple-500" },
-  ]
+  const handleLogin = (email: string, password: string) => {
+    // Demo authentication logic
+    if (email === "demonstration595@gmail.com" && password === "admin123456789") {
+      setUser({
+        isAuthenticated: true,
+        role: 'admin',
+        name: 'Admin User',
+        email: email
+      });
+      setCurrentView('dashboard');
+      toast.success("Welcome back, Admin!");
+    } else {
+      // For demo purposes, any other email/password combo logs in as teacher
+      setUser({
+        isAuthenticated: true,
+        role: 'teacher',
+        name: email.split('@')[0],
+        email: email
+      });
+      setCurrentView('dashboard');
+      toast.success(`Welcome back, ${email.split('@')[0]}!`);
+    }
+  };
+
+  const handleRegister = (name: string, email: string, password: string) => {
+    // Demo registration - creates teacher account
+    setUser({
+      isAuthenticated: true,
+      role: 'teacher',
+      name: name,
+      email: email
+    });
+    setCurrentView('dashboard');
+    toast.success(`Welcome to TestCraft AI, ${name}!`);
+  };
+
+  const handleLogout = () => {
+    setUser({ isAuthenticated: false });
+    setCurrentView('landing');
+    toast.success("Logged out successfully");
+  };
+
+  const showAuth = () => {
+    setCurrentView('auth');
+  };
+
+  const hideAuth = () => {
+    setCurrentView('landing');
+  };
+
+  const handleNavigation = (section: string) => {
+    if (section === 'TOS Builder') {
+      setCurrentView('tos-builder');
+    } else if (section === 'question-bank') {
+      setCurrentView('question-bank');
+    } else if (section === 'test-generator') {
+      setCurrentView('test-generator');
+    } else if (section === 'ai-approval') {
+      setCurrentView('ai-approval');
+    } else if (section === 'rubric-manager') {
+      setCurrentView('rubric-manager');
+    } else if (section === 'multi-version-test') {
+      setCurrentView('multi-version-test');
+    } else if (section === 'collaborative-questions') {
+      setCurrentView('collaborative-questions');
+    } else if (section === 'essay-grading') {
+      setCurrentView('essay-grading');
+    } else if (section === 'Dashboard') {
+      setCurrentView('dashboard');
+    } else {
+      toast.info(`${section} feature coming soon!`);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back! Here's an overview of your test creation activities.
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Header 
+        isAuthenticated={user.isAuthenticated}
+        userRole={user.role}
+        userName={user.name}
+        onLogin={showAuth}
+        onLogout={handleLogout}
+        onNavigate={handleNavigation}
+      />
+      
+      {currentView === 'landing' && (
+        <HeroSection 
+          onGetStarted={showAuth}
+          onLearnMore={() => toast.info("Learn more section coming soon!")}
+        />
+      )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <StatsCard key={index} {...stat} />
-        ))}
-      </div>
+      {currentView === 'auth' && (
+        <AuthForm 
+          onLogin={handleLogin}
+          onRegister={handleRegister}
+          onClose={hideAuth}
+        />
+      )}
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Quick Actions */}
-        <div className="lg:col-span-1">
-          <QuickActions />
-        </div>
-        
-        {/* Recent Activity */}
-        <div className="lg:col-span-2">
-          <RecentActivity />
-        </div>
-      </div>
+      {currentView === 'dashboard' && user.isAuthenticated && (
+        <Dashboard 
+          userRole={user.role!}
+          userName={user.name!}
+          onNavigate={handleNavigation}
+        />
+      )}
 
-      {/* Bloom's Taxonomy Distribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-card rounded-lg border p-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Brain className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-semibold">Bloom's Taxonomy Distribution</h3>
-            </div>
-            
-            <div className="space-y-3">
-              {bloomsDistribution.map((item) => (
-                <div key={item.level} className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{item.level}</span>
-                    <span className="text-muted-foreground">{item.count} questions</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${item.color}`}
-                      style={{ width: `${item.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+      {currentView === 'tos-builder' && user.isAuthenticated && (
+        <div className="container mx-auto py-8">
+          <TOSBuilder onBack={() => setCurrentView('dashboard')} />
         </div>
+      )}
 
-        {/* Performance Metrics */}
-        <div className="bg-card rounded-lg border p-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-semibold">Performance Metrics</h3>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-accent/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Target className="w-5 h-5 text-success" />
-                  <div>
-                    <p className="font-medium text-sm">Question Quality</p>
-                    <p className="text-xs text-muted-foreground">Average review score</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-lg">4.8</p>
-                  <p className="text-xs text-success">+0.3 this month</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 bg-accent/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Award className="w-5 h-5 text-warning" />
-                  <div>
-                    <p className="font-medium text-sm">Test Effectiveness</p>
-                    <p className="text-xs text-muted-foreground">Based on feedback</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-lg">92%</p>
-                  <p className="text-xs text-success">+5% this month</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 bg-accent/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Brain className="w-5 h-5 text-accent" />
-                  <div>
-                    <p className="font-medium text-sm">AI Assistance</p>
-                    <p className="text-xs text-muted-foreground">Questions generated</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-lg">342</p>
-                  <p className="text-xs text-success">+89 this month</p>
-                </div>
-              </div>
-            </div>
-          </div>
+      {currentView === 'question-bank' && user.isAuthenticated && (
+        <div className="container mx-auto py-8">
+          <QuestionBank onBack={() => setCurrentView('dashboard')} />
         </div>
-      </div>
+      )}
+
+      {currentView === 'test-generator' && user.isAuthenticated && (
+        <div className="container mx-auto py-8">
+          <TestGenerator onBack={() => setCurrentView('dashboard')} />
+        </div>
+      )}
+
+      {currentView === 'ai-approval' && user.isAuthenticated && user.role === 'admin' && (
+        <AIApprovalWorkflow onBack={() => setCurrentView('dashboard')} />
+      )}
+
+      {currentView === 'rubric-manager' && user.isAuthenticated && (
+        <RubricManager onBack={() => setCurrentView('dashboard')} />
+      )}
+
+      {currentView === 'multi-version-test' && user.isAuthenticated && (
+        <MultiVersionTestGenerator onBack={() => setCurrentView('dashboard')} />
+      )}
+
+      {currentView === 'collaborative-questions' && user.isAuthenticated && (
+        <div className="container mx-auto py-8">
+          <CollaborativeQuestionBank />
+        </div>
+      )}
+
+      {currentView === 'essay-grading' && user.isAuthenticated && (
+        <EssayGradingInterface onBack={() => setCurrentView('dashboard')} />
+      )}
     </div>
   );
 };
