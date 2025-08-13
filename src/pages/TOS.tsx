@@ -10,6 +10,8 @@ import { TOSMatrix } from "@/components/tos/TOSMatrix"
 import { TOSForm } from "@/components/tos/TOSForm"
 import { TestGenerator } from "@/components/tos/TestGenerator"
 import { GeneratedTest, TestQuestion } from "@/components/tos/GeneratedTest"
+import { usePDFExport } from "@/hooks/usePDFExport"
+import { useToast } from "@/hooks/use-toast"
 
 export interface TOSConfig {
   subjectNo: string
@@ -43,6 +45,8 @@ export interface TOSData extends TOSConfig {
 }
 
 const TOS = () => {
+  const { exportTOSMatrix, exportTestQuestions } = usePDFExport();
+  const { toast } = useToast();
   const [tosConfig, setTosConfig] = useState<TOSConfig>({
     subjectNo: "IS 9",
     course: "BSIS",
@@ -157,6 +161,41 @@ const TOS = () => {
     setCurrentStep('matrix')
   }
 
+  const handleExportPDF = async () => {
+    const success = await exportTOSMatrix();
+    if (success) {
+      toast({
+        title: "PDF Exported",
+        description: "Table of Specifications exported successfully.",
+      });
+    } else {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  const handleExportTest = async () => {
+    if (testQuestions.length > 0) {
+      const testTitle = `${tosData?.description || 'Test'} - ${tosData?.examPeriod || 'Exam'}`;
+      const success = await exportTestQuestions(testQuestions, testTitle);
+      if (success) {
+        toast({
+          title: "Test Exported",
+          description: "Test questions and answer key exported successfully.",
+        });
+      } else {
+        toast({
+          title: "Export Failed", 
+          description: "Failed to export test. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -193,7 +232,7 @@ const TOS = () => {
                 <Eye className="w-4 h-4" />
                 Preview
               </Button>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" onClick={handleExportPDF}>
                 <Download className="w-4 h-4" />
                 Export PDF
               </Button>

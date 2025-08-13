@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,65 +6,86 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Edit, Trash2, Bot, User, Filter } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data - replace with Supabase integration
-const mockQuestions = [
-  {
-    id: "1",
-    topic: "Requirements Engineering",
-    text: "Define the primary purpose of requirements elicitation in software development.",
-    type: "mcq",
-    choices: {
-      A: "To test system performance",
-      B: "To analyze user interface design", 
-      C: "To gather user needs and expectations",
-      D: "To write code for development"
-    },
-    correct_answer: "C",
-    bloom_level: "Remembering",
-    difficulty: "Easy",
-    knowledge_dimension: "Factual",
-    created_by: "ai",
-    used_history: [],
-    created_at: "2024-07-18T10:00:00Z"
-  },
-  {
-    id: "2",
-    topic: "Data and Process Modeling",
-    text: "Analyze the effectiveness of using data flow diagrams versus entity relationship diagrams for system documentation.",
-    type: "essay",
-    correct_answer: "Sample rubric: Should compare strengths/weaknesses, appropriate use cases...",
-    bloom_level: "Analyzing",
-    difficulty: "Difficult",
-    knowledge_dimension: "Conceptual",
-    created_by: "teacher",
-    used_history: ["test_1", "test_3"],
-    created_at: "2024-07-17T14:30:00Z"
-  },
-  {
-    id: "3",
-    topic: "Object Modeling",
-    text: "A class diagram should always include inheritance relationships.",
-    type: "tf",
-    correct_answer: "False",
-    bloom_level: "Understanding",
-    difficulty: "Average",
-    knowledge_dimension: "Factual",
-    created_by: "teacher",
-    used_history: [],
-    created_at: "2024-07-16T09:15:00Z"
-  },
-];
+interface Question {
+  id: string;
+  topic: string;
+  question_text: string;
+  question_type: string;
+  choices?: any;
+  correct_answer: string;
+  bloom_level: string;
+  difficulty: string;
+  knowledge_dimension: string;
+  created_by: string;
+  created_at: string;
+}
 
 export function QuestionBankList() {
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [topicFilter, setTopicFilter] = useState("all");
   const [bloomFilter, setBloomFilter] = useState("all");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const { toast } = useToast();
 
-  const filteredQuestions = mockQuestions.filter(question => {
-    const matchesSearch = question.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+
+  const fetchQuestions = async () => {
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data, error } = await supabase
+        .from('questions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      setQuestions(data || []);
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load questions.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (questionId: string) => {
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { error } = await supabase
+        .from('questions')
+        .delete()
+        .eq('id', questionId);
+
+      if (error) throw error;
+
+      setQuestions(questions.filter(q => q.id !== questionId));
+      toast({
+        title: "Question Deleted",
+        description: "Question has been removed from the bank.",
+      });
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      toast({
+        title: "Error", 
+        description: "Failed to delete question.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const filteredQuestions = questions.filter(question => {
+    const matchesSearch = question.question_text.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          question.topic.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTopic = topicFilter === "all" || question.topic === topicFilter;
     const matchesBloom = bloomFilter === "all" || question.bloom_level === bloomFilter;
@@ -83,6 +104,18 @@ export function QuestionBankList() {
     };
     return types[type as keyof typeof types] || type;
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">Loading questions...</div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -203,13 +236,13 @@ export function QuestionBankList() {
                   <TableCell className="max-w-md">
                     <div className="space-y-1">
                       <p className="text-sm font-medium line-clamp-2">
-                        {question.text}
+                        {question.question_text}
                       </p>
-                      {question.type === "mcq" && question.choices && (
+                      {question.question_type === "mcq" && question.choices && typeof question.choices === 'object' && (
                         <div className="text-xs text-muted-foreground space-y-1">
                           {Object.entries(question.choices).map(([key, value]) => (
                             <div key={key} className={`${question.correct_answer === key ? 'font-medium text-green-600' : ''}`}>
-                              {key}. {value}
+                              {key}. {String(value)}
                             </div>
                           ))}
                         </div>
@@ -223,7 +256,7 @@ export function QuestionBankList() {
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="text-xs">
-                      {getTypeDisplay(question.type)}
+                      {getTypeDisplay(question.question_type)}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -248,7 +281,7 @@ export function QuestionBankList() {
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">
-                      Used {question.used_history?.length || 0} times
+                      Available
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -256,7 +289,11 @@ export function QuestionBankList() {
                       <Button variant="outline" size="sm">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleDelete(question.id)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

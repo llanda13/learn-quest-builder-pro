@@ -65,10 +65,98 @@ export function TOSForm({ config, onConfigChange, onGenerate }: TOSFormProps) {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (validateForm()) {
+      await saveTOSToSupabase(config)
       onGenerate(config)
+    }
+  }
+
+  const saveTOSToSupabase = async (tosConfig: TOSConfig) => {
+    try {
+      const { supabase } = await import('@/integrations/supabase/client')
+      
+      // Save TOS entry
+      const { data: tosEntry, error: tosError } = await supabase
+        .from('tos_entries')
+        .insert([{
+          title: `${tosConfig.subjectNo} - ${tosConfig.examPeriod} Exam`,
+          subject_no: tosConfig.subjectNo,
+          course: tosConfig.course,
+          description: tosConfig.description,
+          year_section: tosConfig.yearSection,
+          exam_period: tosConfig.examPeriod,
+          school_year: tosConfig.schoolYear,
+          total_items: tosConfig.totalItems,
+          prepared_by: tosConfig.preparedBy,
+          noted_by: tosConfig.notedBy,
+          created_by: 'teacher'
+        }])
+        .select()
+        .single()
+
+      if (tosError) throw tosError
+
+      // Calculate and save learning competencies
+      const totalHours = tosConfig.topics.reduce((sum, topic) => sum + topic.hours, 0)
+      let currentItemNumber = 1
+
+      for (const topic of tosConfig.topics) {
+        const topicPercentage = (topic.hours / totalHours) * 100
+        const topicItems = Math.round(tosConfig.totalItems * (topic.hours / totalHours))
+        
+        // Bloom's distribution
+        const bloomDistribution = {
+          remembering: Math.round(topicItems * 0.15),
+          understanding: Math.round(topicItems * 0.15),
+          applying: Math.round(topicItems * 0.20),
+          analyzing: Math.round(topicItems * 0.20),
+          evaluating: Math.round(topicItems * 0.15),
+          creating: Math.round(topicItems * 0.15)
+        }
+
+        // Adjust for rounding
+        const calculatedTotal = Object.values(bloomDistribution).reduce((a, b) => a + b, 0)
+        if (calculatedTotal !== topicItems) {
+          bloomDistribution.applying += (topicItems - calculatedTotal)
+        }
+
+        // Generate item numbers
+        const itemNumbers = {
+          remembering: Array.from({length: bloomDistribution.remembering}, (_, i) => currentItemNumber + i),
+          understanding: Array.from({length: bloomDistribution.understanding}, (_, i) => currentItemNumber + bloomDistribution.remembering + i),
+          applying: Array.from({length: bloomDistribution.applying}, (_, i) => currentItemNumber + bloomDistribution.remembering + bloomDistribution.understanding + i),
+          analyzing: Array.from({length: bloomDistribution.analyzing}, (_, i) => currentItemNumber + bloomDistribution.remembering + bloomDistribution.understanding + bloomDistribution.applying + i),
+          evaluating: Array.from({length: bloomDistribution.evaluating}, (_, i) => currentItemNumber + bloomDistribution.remembering + bloomDistribution.understanding + bloomDistribution.applying + bloomDistribution.analyzing + i),
+          creating: Array.from({length: bloomDistribution.creating}, (_, i) => currentItemNumber + bloomDistribution.remembering + bloomDistribution.understanding + bloomDistribution.applying + bloomDistribution.analyzing + bloomDistribution.evaluating + i)
+        }
+
+        currentItemNumber += topicItems
+
+        const { error: competencyError } = await supabase
+          .from('learning_competencies')
+          .insert([{
+            tos_id: tosEntry.id,
+            topic_name: topic.name,
+            hours: topic.hours,
+            percentage: topicPercentage,
+            remembering_items: bloomDistribution.remembering,
+            understanding_items: bloomDistribution.understanding,
+            applying_items: bloomDistribution.applying,
+            analyzing_items: bloomDistribution.analyzing,
+            evaluating_items: bloomDistribution.evaluating,
+            creating_items: bloomDistribution.creating,
+            total_items: topicItems,
+            item_numbers: itemNumbers
+          }])
+
+        if (competencyError) throw competencyError
+      }
+
+      console.log('TOS saved to Supabase successfully')
+    } catch (error) {
+      console.error('Error saving TOS to Supabase:', error)
     }
   }
 

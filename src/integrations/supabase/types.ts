@@ -14,6 +14,109 @@ export type Database = {
   }
   public: {
     Tables: {
+      generated_tests: {
+        Row: {
+          answer_key: Json
+          created_at: string
+          created_by: string
+          id: string
+          questions: Json
+          test_title: string
+          tos_id: string | null
+          total_points: number
+          total_questions: number
+        }
+        Insert: {
+          answer_key: Json
+          created_at?: string
+          created_by?: string
+          id?: string
+          questions: Json
+          test_title: string
+          tos_id?: string | null
+          total_points: number
+          total_questions: number
+        }
+        Update: {
+          answer_key?: Json
+          created_at?: string
+          created_by?: string
+          id?: string
+          questions?: Json
+          test_title?: string
+          tos_id?: string | null
+          total_points?: number
+          total_questions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_tests_tos_id_fkey"
+            columns: ["tos_id"]
+            isOneToOne: false
+            referencedRelation: "tos_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_competencies: {
+        Row: {
+          analyzing_items: number
+          applying_items: number
+          created_at: string
+          creating_items: number
+          evaluating_items: number
+          hours: number
+          id: string
+          item_numbers: Json
+          percentage: number
+          remembering_items: number
+          topic_name: string
+          tos_id: string | null
+          total_items: number
+          understanding_items: number
+        }
+        Insert: {
+          analyzing_items?: number
+          applying_items?: number
+          created_at?: string
+          creating_items?: number
+          evaluating_items?: number
+          hours: number
+          id?: string
+          item_numbers?: Json
+          percentage: number
+          remembering_items?: number
+          topic_name: string
+          tos_id?: string | null
+          total_items: number
+          understanding_items?: number
+        }
+        Update: {
+          analyzing_items?: number
+          applying_items?: number
+          created_at?: string
+          creating_items?: number
+          evaluating_items?: number
+          hours?: number
+          id?: string
+          item_numbers?: Json
+          percentage?: number
+          remembering_items?: number
+          topic_name?: string
+          tos_id?: string | null
+          total_items?: number
+          understanding_items?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_competencies_tos_id_fkey"
+            columns: ["tos_id"]
+            isOneToOne: false
+            referencedRelation: "tos_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       question_rubrics: {
         Row: {
           created_at: string | null
@@ -425,6 +528,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tos_entries: {
+        Row: {
+          course: string
+          created_at: string
+          created_by: string
+          description: string
+          exam_period: string
+          id: string
+          noted_by: string
+          prepared_by: string
+          school_year: string
+          subject_no: string
+          title: string
+          total_items: number
+          updated_at: string
+          year_section: string
+        }
+        Insert: {
+          course: string
+          created_at?: string
+          created_by?: string
+          description: string
+          exam_period: string
+          id?: string
+          noted_by: string
+          prepared_by: string
+          school_year: string
+          subject_no: string
+          title: string
+          total_items: number
+          updated_at?: string
+          year_section: string
+        }
+        Update: {
+          course?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          exam_period?: string
+          id?: string
+          noted_by?: string
+          prepared_by?: string
+          school_year?: string
+          subject_no?: string
+          title?: string
+          total_items?: number
+          updated_at?: string
+          year_section?: string
+        }
+        Relationships: []
       }
     }
     Views: {

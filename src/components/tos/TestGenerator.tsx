@@ -190,6 +190,78 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
     ))
   }
 
+  const generateQuestionsFromDatabase = async (): Promise<TestQuestion[]> => {
+    try {
+      const { supabase } = await import('@/integrations/supabase/client')
+      const questions: TestQuestion[] = []
+      let questionId = 1
+
+      // For each topic and bloom level, try to fetch questions from database
+      for (const [topicName, topicData] of Object.entries(tosData.distribution)) {
+        for (const [bloomLevel, itemNumbers] of Object.entries(topicData)) {
+          if (bloomLevel === 'hours' || bloomLevel === 'total' || !Array.isArray(itemNumbers)) continue
+
+          // Try to fetch existing questions
+          const { data: existingQuestions } = await supabase
+            .from('questions')
+            .select('*')
+            .eq('topic', topicName)
+            .eq('bloom_level', bloomLevel.charAt(0).toUpperCase() + bloomLevel.slice(1))
+            .limit(itemNumbers.length)
+
+          let questionsAdded = 0
+          
+          // Use existing questions if available
+          if (existingQuestions && existingQuestions.length > 0) {
+            for (const dbQuestion of existingQuestions.slice(0, itemNumbers.length)) {
+              const difficulty = getDifficultyFromBloom(bloomLevel)
+              
+              questions.push({
+                id: itemNumbers[questionsAdded] || questionId++,
+                topicName,
+                bloomLevel: bloomLevel.charAt(0).toUpperCase() + bloomLevel.slice(1),
+                difficulty,
+                type: dbQuestion.question_type === 'mcq' ? 'multiple-choice' : 'essay',
+                question: dbQuestion.question_text,
+                options: dbQuestion.choices ? Object.values(dbQuestion.choices) : undefined,
+                correctAnswer: dbQuestion.question_type === 'mcq' ? 
+                  (dbQuestion.choices ? Object.keys(dbQuestion.choices).indexOf(dbQuestion.correct_answer) : 0) : 
+                  undefined,
+                points: difficulty === 'Easy' ? 1 : difficulty === 'Average' ? 2 : 3
+              })
+              questionsAdded++
+            }
+          }
+
+          // Generate remaining questions if needed
+          const remainingNeeded = itemNumbers.length - questionsAdded
+          for (let i = 0; i < remainingNeeded; i++) {
+            const difficulty = getDifficultyFromBloom(bloomLevel)
+            const verb = bloomVerbs[bloomLevel as keyof typeof bloomVerbs]?.[Math.floor(Math.random() * bloomVerbs[bloomLevel as keyof typeof bloomVerbs].length)] || 'Explain'
+            
+            questions.push({
+              id: itemNumbers[questionsAdded + i] || questionId++,
+              topicName,
+              bloomLevel: bloomLevel.charAt(0).toUpperCase() + bloomLevel.slice(1),
+              difficulty,
+              type: ['remembering', 'understanding', 'applying'].includes(bloomLevel) ? 'multiple-choice' : 'essay',
+              question: generateQuestionText(verb, topicName, bloomLevel),
+              options: ['remembering', 'understanding', 'applying'].includes(bloomLevel) ? 
+                generateOptions(topicName, bloomLevel) : undefined,
+              correctAnswer: ['remembering', 'understanding', 'applying'].includes(bloomLevel) ? 0 : undefined,
+              points: difficulty === 'Easy' ? 1 : difficulty === 'Average' ? 2 : 3
+            })
+          }
+        }
+      }
+
+      return questions.sort((a, b) => a.id - b.id)
+    } catch (error) {
+      console.error('Error generating questions from database:', error)
+      return generateMockQuestions()
+    }
+  }
+
   const simulateGeneration = async () => {
     setIsGenerating(true)
     setProgress(0)
@@ -205,8 +277,28 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
       setProgress(((i + 1) / steps.length) * 100)
     }
 
-    // Generate mock questions
-    const questions = generateMockQuestions()
+    // Generate questions using database + AI fallback
+    const questions = await generateQuestionsFromDatabase()
+    
+    // Save generated test to database
+    try {
+      const { supabase } = await import('@/integrations/supabase/client')
+      await supabase
+        .from('generated_tests')
+        .insert({
+          test_title: `${tosData.description} - ${tosData.examPeriod} Exam`,
+          questions: questions as any,
+          answer_key: questions.reduce((acc, q) => {
+            acc[q.id] = q.correctAnswer || q.question
+            return acc
+          }, {} as Record<number, any>) as any,
+          total_questions: questions.length,
+          total_points: questions.reduce((sum, q) => sum + q.points, 0),
+          created_by: 'teacher'
+        })
+    } catch (error) {
+      console.error('Error saving generated test:', error)
+    }
     
     setTimeout(() => {
       setIsGenerating(false)

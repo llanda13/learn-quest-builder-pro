@@ -2,8 +2,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Download, FileText, Key, Printer } from "lucide-react"
+import { Download, ArrowLeft, FileText, CheckCircle, Printer, Key } from "lucide-react"
 import { TOSData } from "@/pages/TOS"
+import { usePDFExport } from "@/hooks/usePDFExport"
+import { useToast } from "@/hooks/use-toast"
 
 interface GeneratedTestProps {
   tosData: TOSData
@@ -24,6 +26,27 @@ export interface TestQuestion {
 }
 
 export function GeneratedTest({ tosData, testQuestions, onBack }: GeneratedTestProps) {
+  const { exportTestQuestions } = usePDFExport();
+  const { toast } = useToast();
+  const totalPoints = testQuestions.reduce((sum, q) => sum + q.points, 0)
+
+  const handleExportTest = async () => {
+    const testTitle = `${tosData.description} - ${tosData.examPeriod} Exam`;
+    const success = await exportTestQuestions(testQuestions, testTitle);
+    if (success) {
+      toast({
+        title: "Test Exported",
+        description: "Test questions and answer key exported successfully.",
+      });
+    } else {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export test. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
   const easyQuestions = testQuestions.filter(q => q.difficulty === 'Easy')
   const averageQuestions = testQuestions.filter(q => q.difficulty === 'Average')
   const difficultQuestions = testQuestions.filter(q => q.difficulty === 'Difficult')
@@ -45,174 +68,177 @@ export function GeneratedTest({ tosData, testQuestions, onBack }: GeneratedTestP
 
   return (
     <div className="space-y-6">
-      {/* Header Controls */}
-      <div className="flex items-center justify-between print:hidden">
-        <Button variant="outline" onClick={onBack}>
-          ← Back to TOS
-        </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePrint} className="gap-2">
-            <Printer className="w-4 h-4" />
-            Print Test
-          </Button>
-          <Button variant="outline" className="gap-2">
-            <Key className="w-4 h-4" />
-            Answer Key
-          </Button>
-          <Button onClick={handleDownloadPackage} className="gap-2">
-            <Download className="w-4 h-4" />
-            Download Package
-          </Button>
-        </div>
-      </div>
-
-      {/* Test Document */}
-      <div className="bg-white text-black p-8 shadow-lg print:shadow-none print:p-0">
-        {/* School Header */}
-        <div className="text-center mb-8 border-b-2 border-gray-800 pb-4">
-          <h1 className="text-xl font-bold">AGUSAN DEL SUR STATE COLLEGE OF AGRICULTURE AND TECHNOLOGY</h1>
-          <h2 className="text-lg font-semibold">College of Computing and Information Sciences</h2>
-          <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
-            <div className="text-left">
-              <p><strong>Course:</strong> {tosData.course}</p>
-              <p><strong>Subject:</strong> {tosData.description}</p>
-              <p><strong>Examination Period:</strong> {tosData.examPeriod}</p>
+      {/* Header with Test Summary */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-6 h-6 text-green-500" />
+              <CardTitle>Test Generated Successfully</CardTitle>
             </div>
-            <div className="text-right">
-              <p><strong>Year & Section:</strong> {tosData.yearSection}</p>
-              <p><strong>School Year:</strong> {tosData.schoolYear}</p>
-              <p><strong>Total Items:</strong> {tosData.totalItems}</p>
+            <Button variant="outline" onClick={onBack} className="gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Back to TOS
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{testQuestions.length}</div>
+              <div className="text-sm text-muted-foreground">Total Questions</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{easyQuestions.length}</div>
+              <div className="text-sm text-muted-foreground">Easy</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600">{averageQuestions.length}</div>
+              <div className="text-sm text-muted-foreground">Average</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">{difficultQuestions.length}</div>
+              <div className="text-sm text-muted-foreground">Difficult</div>
             </div>
           </div>
-          <div className="mt-4 flex justify-between text-sm">
-            <p><strong>Name:</strong> ________________________</p>
-            <p><strong>Score:</strong> _______</p>
-          </div>
-        </div>
 
-        {/* Instructions */}
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg print:bg-transparent print:border print:border-gray-400">
-          <h3 className="font-bold mb-2">INSTRUCTIONS:</h3>
-          <ul className="text-sm space-y-1">
-            <li>• Answer all questions completely and clearly.</li>
-            <li>• Circle the correct letter for multiple choice questions.</li>
-            <li>• Write your essays on the back of the test paper or use additional sheets.</li>
-            <li>• Manage your time wisely.</li>
-          </ul>
-        </div>
-
-        {/* Easy Questions */}
-        {easyQuestions.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <h3 className="text-lg font-bold">PART I - EASY QUESTIONS</h3>
-              <Badge variant="secondary">Remembering & Understanding</Badge>
-            </div>
-            <div className="space-y-4">
-              {easyQuestions.map((question, index) => (
-                <QuestionItem key={question.id} question={question} />
-              ))}
-            </div>
+          <div className="flex gap-2 mt-4">
+            <Button variant="outline" onClick={handlePrint} className="gap-2">
+              <Printer className="w-4 h-4" />
+              Print Test
+            </Button>
+            <Button variant="outline" className="gap-2">
+              <Key className="w-4 h-4" />
+              Answer Key
+            </Button>
+            <Button onClick={handleExportTest} className="gap-2">
+              <Download className="w-4 h-4" />
+              Export as PDF
+            </Button>
           </div>
-        )}
+        </CardContent>
+      </Card>
 
-        {/* Average Questions */}
-        {averageQuestions.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <h3 className="text-lg font-bold">PART II - AVERAGE QUESTIONS</h3>
-              <Badge variant="secondary">Applying & Analyzing</Badge>
-            </div>
-            <div className="space-y-4">
-              {averageQuestions.map((question, index) => (
-                <QuestionItem key={question.id} question={question} />
-              ))}
-            </div>
-          </div>
-        )}
+      {/* Generated Questions Preview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            Generated Test Questions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* Easy Questions */}
+            {easyQuestions.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-lg font-semibold">Easy Questions</h3>
+                  <Badge variant="secondary">Remembering & Understanding</Badge>
+                </div>
+                <div className="space-y-4">
+                  {easyQuestions.map((question, index) => (
+                    <QuestionPreview key={question.id} question={question} />
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {/* Difficult Questions */}
-        {difficultQuestions.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <h3 className="text-lg font-bold">PART III - DIFFICULT QUESTIONS</h3>
-              <Badge variant="secondary">Evaluating & Creating</Badge>
-            </div>
-            <div className="space-y-4">
-              {difficultQuestions.map((question, index) => (
-                <QuestionItem key={question.id} question={question} />
-              ))}
-            </div>
-          </div>
-        )}
+            {/* Average Questions */}
+            {averageQuestions.length > 0 && (
+              <div>
+                <Separator />
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-lg font-semibold">Average Questions</h3>
+                  <Badge variant="secondary">Applying & Analyzing</Badge>
+                </div>
+                <div className="space-y-4">
+                  {averageQuestions.map((question, index) => (
+                    <QuestionPreview key={question.id} question={question} />
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {/* Footer */}
-        <div className="mt-12 pt-4 border-t border-gray-400">
-          <div className="grid grid-cols-2 gap-8 text-sm">
-            <div>
-              <p className="mb-8">Prepared by:</p>
-              <div className="border-b border-gray-400 mb-2"></div>
-              <p className="text-center">{tosData.preparedBy || "[Teacher Name]"}</p>
-              <p className="text-center text-xs">Instructor</p>
-            </div>
-            <div>
-              <p className="mb-8">Noted by:</p>
-              <div className="border-b border-gray-400 mb-2"></div>
-              <p className="text-center">{tosData.notedBy || "[Dean Name]"}</p>
-              <p className="text-center text-xs">Dean</p>
-            </div>
+            {/* Difficult Questions */}
+            {difficultQuestions.length > 0 && (
+              <div>
+                <Separator />
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-lg font-semibold">Difficult Questions</h3>
+                  <Badge variant="secondary">Evaluating & Creating</Badge>
+                </div>
+                <div className="space-y-4">
+                  {difficultQuestions.map((question, index) => (
+                    <QuestionPreview key={question.id} question={question} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
-function QuestionItem({ question }: { question: TestQuestion }) {
+function QuestionPreview({ question }: { question: TestQuestion }) {
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'Easy': return 'bg-green-100 text-green-800'
+      case 'Average': return 'bg-yellow-100 text-yellow-800'
+      case 'Difficult': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
   return (
-    <div className="border-l-4 border-primary pl-4">
-      <div className="flex items-start gap-2">
-        <span className="font-bold min-w-8">{question.id}.</span>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="outline" className="text-xs">
-              {question.topicName}
-            </Badge>
-            <Badge variant="outline" className="text-xs">
-              {question.bloomLevel}
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              ({question.points} {question.points === 1 ? 'point' : 'points'})
-            </span>
-          </div>
-          <p className="mb-3 leading-relaxed">{question.question}</p>
-          
-          {question.type === 'multiple-choice' && question.options && (
-            <div className="ml-4 space-y-1">
-              {question.options.map((option, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <span className="font-medium">
-                    {String.fromCharCode(65 + index)}.
-                  </span>
-                  <span>{option}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {question.type === 'essay' && (
-            <div className="mt-2 text-sm text-muted-foreground">
-              <p>Answer: (Use the back of this paper or additional sheets)</p>
-            </div>
-          )}
-          
-          {question.type === 'fill-blank' && (
-            <div className="mt-2">
-              <div className="border-b border-gray-400 w-48 inline-block"></div>
-            </div>
-          )}
+    <div className="border rounded-lg p-4 space-y-3">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-lg">Q{question.id}</span>
+          <Badge variant="outline" className="text-xs">
+            {question.topicName}
+          </Badge>
+          <Badge variant="outline" className="text-xs">
+            {question.bloomLevel}
+          </Badge>
+          <Badge className={`text-xs ${getDifficultyColor(question.difficulty)}`}>
+            {question.difficulty}
+          </Badge>
         </div>
+        <span className="text-sm text-muted-foreground">
+          {question.points} {question.points === 1 ? 'point' : 'points'}
+        </span>
       </div>
+      
+      <p className="text-sm leading-relaxed">{question.question}</p>
+      
+      {question.type === 'multiple-choice' && question.options && (
+        <div className="ml-4 space-y-1">
+          {question.options.map((option, index) => (
+            <div 
+              key={index} 
+              className={`text-sm flex items-start gap-2 ${
+                typeof question.correctAnswer === 'number' && question.correctAnswer === index 
+                  ? 'font-medium text-green-600' 
+                  : 'text-muted-foreground'
+              }`}
+            >
+              <span className="font-medium">
+                {String.fromCharCode(65 + index)}.
+              </span>
+              <span>{option}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {question.type === 'essay' && (
+        <div className="text-sm text-muted-foreground italic">
+          Essay question - Answer key: {question.correctAnswer}
+        </div>
+      )}
     </div>
   )
 }

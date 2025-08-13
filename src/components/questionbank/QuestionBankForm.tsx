@@ -91,16 +91,30 @@ export function QuestionBankForm({ onSuccess }: QuestionBankFormProps) {
 
   const onSubmit = async (data: QuestionFormData) => {
     try {
-      // Mock save - replace with actual Supabase integration
+      const { supabase } = await import('@/integrations/supabase/client')
+      
       const questionData = {
-        ...data,
-        choices: questionType === "mcq" ? choices.filter(c => c.trim()) : undefined,
+        topic: data.topic,
+        question_text: data.text,
+        question_type: data.type,
+        choices: questionType === "mcq" ? choices.filter(c => c.trim()).reduce((acc, choice, index) => {
+          acc[String.fromCharCode(65 + index)] = choice
+          return acc
+        }, {} as Record<string, string>) : null,
+        correct_answer: data.correct_answer,
+        bloom_level: data.bloom_level,
+        difficulty: data.difficulty,
+        knowledge_dimension: data.knowledge_dimension,
         created_by: "teacher",
-        used_history: [],
-        created_at: new Date().toISOString(),
+        approved: false,
+        needs_review: false
       };
 
-      console.log("Saving question:", questionData);
+      const { error } = await supabase
+        .from('questions')
+        .insert([questionData])
+
+      if (error) throw error
       
       toast({
         title: "Question Added",
@@ -111,6 +125,7 @@ export function QuestionBankForm({ onSuccess }: QuestionBankFormProps) {
       setChoices(["", "", "", ""]);
       onSuccess();
     } catch (error) {
+      console.error('Error saving question:', error)
       toast({
         title: "Error",
         description: "Failed to add question. Please try again.",
