@@ -142,7 +142,7 @@ export const MultiVersionTestGenerator = ({ onBack }: MultiVersionTestGeneratorP
 
   const handleGenerateVersions = async () => {
     // Validate configuration
-    const configErrors = validateTestConfig(testConfig, selectedQuestions);
+    const configErrors = validateTestConfig({...testConfig, total_questions: selectedQuestions.length}, selectedQuestions);
     if (configErrors.length > 0) {
       toast({
         title: "Configuration Error",
@@ -153,7 +153,7 @@ export const MultiVersionTestGenerator = ({ onBack }: MultiVersionTestGeneratorP
     }
 
     // Check balance
-    const { warnings } = validateVersionBalance(selectedQuestions, testConfig);
+    const { warnings } = validateVersionBalance(selectedQuestions, {...testConfig, total_questions: selectedQuestions.length});
     if (warnings.length > 0) {
       console.warn('Test balance warnings:', warnings);
     }
@@ -162,11 +162,11 @@ export const MultiVersionTestGenerator = ({ onBack }: MultiVersionTestGeneratorP
 
     try {
       // Generate versions
-      const versions = await generateTestVersions(testConfig, selectedQuestions);
+      const versions = await generateTestVersions({...testConfig, total_questions: selectedQuestions.length}, selectedQuestions);
       setTestVersions(versions);
 
       // Save to database
-      const testId = await saveTestVersions(testConfig, versions);
+      const testId = await saveTestVersions({...testConfig, total_questions: selectedQuestions.length}, versions);
       setSavedTestId(testId);
 
       setActiveTab('preview');
@@ -324,7 +324,7 @@ export const MultiVersionTestGenerator = ({ onBack }: MultiVersionTestGeneratorP
     }
   };
 
-  const { warnings } = validateVersionBalance(selectedQuestions, testConfig);
+      const { warnings } = validateVersionBalance(selectedQuestions, {...testConfig, total_questions: selectedQuestions.length});
 
   return (
     <div className="min-h-screen bg-background">
@@ -1003,7 +1003,7 @@ export const MultiVersionTestGenerator = ({ onBack }: MultiVersionTestGeneratorP
                                 </div>
                                 <div>
                                   <span className="text-muted-foreground">Created:</span>
-                                  <p className="font-medium">{new Date(test.created_at!).toLocaleDateString()}</p>
+                                  <p className="font-medium">{new Date().toLocaleDateString()}</p>
                                 </div>
                               </div>
                               <div className="flex gap-2">

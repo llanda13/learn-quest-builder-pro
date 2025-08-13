@@ -18,6 +18,7 @@ import {
   Clock,
   Share2,
   UserPlus,
+  X,
   Settings
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';

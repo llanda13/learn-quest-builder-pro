@@ -14,21 +14,21 @@ const quickActions = [
     title: "Add Questions",
     description: "Manually create new questions",
     icon: HelpCircle,
-    variant: "success" as const,
+    variant: "secondary" as const,
     href: "/questions/create"
   },
   {
     title: "Generate Test",
     description: "Create a test from existing TOS",
     icon: ClipboardList,
-    variant: "accent" as const,
+    variant: "outline" as const,
     href: "/generator/create"
   },
   {
     title: "AI Assistant",
     description: "Generate questions with AI",
     icon: Brain,
-    variant: "warning" as const,
+    variant: "ghost" as const,
     href: "/ai-assistant"
   }
 ]
