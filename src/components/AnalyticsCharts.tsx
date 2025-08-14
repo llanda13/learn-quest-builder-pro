@@ -1,47 +1,22 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  PieChart, 
-  Pie, 
-  Cell, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer
-} from "recharts";
-import { 
-  Brain, 
-  BarChart3, 
-  BookOpen, 
-  Target,
-  CheckCircle,
-  Clock
-} from "lucide-react";
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { TrendingUp, BookOpen, Target, Brain } from 'lucide-react';
 
 interface AnalyticsData {
   bloomDistribution: Array<{ name: string; value: number; color: string }>;
-  difficultyDistribution: Array<{ name: string; value: number; color: string }>;
-  topicDistribution: Array<{ topic: string; count: number }>;
+  difficultySpread: Array<{ name: string; value: number }>;
+  topicDistribution: Array<{ name: string; value: number }>;
+  questionUsage: Array<{ date: string; count: number }>;
+  totalQuestions: number;
+  approvedQuestions: number;
+  pendingQuestions: number;
 }
 
-const COLORS = {
-  bloom: ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#e74c3c', '#9b59b6'],
-  difficulty: ['#2ecc71', '#f39c12', '#e74c3c']
-};
-
-export function AnalyticsCharts() {
+export default function AnalyticsCharts() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalQuestions: 0,
-    approvedQuestions: 0,
-    totalTests: 0,
-    avgConfidence: 0
-  });
 
   useEffect(() => {
     fetchAnalyticsData();
@@ -49,73 +24,95 @@ export function AnalyticsCharts() {
 
   const fetchAnalyticsData = async () => {
     try {
-      const { data: questions, error: questionsError } = await supabase
+      // Fetch questions data
+      const { data: questions, error } = await supabase
         .from('questions')
-        .select('*');
+        .select('bloom_level, difficulty, topic, approved, created_at, created_by');
 
-      if (questionsError) throw questionsError;
+      if (error) throw error;
 
-      const { data: tests, error: testsError } = await supabase
-        .from('generated_tests')
-        .select('created_at');
+      if (!questions) {
+        setData({
+          bloomDistribution: [],
+          difficultySpread: [],
+          topicDistribution: [],
+          questionUsage: [],
+          totalQuestions: 0,
+          approvedQuestions: 0,
+          pendingQuestions: 0
+        });
+        return;
+      }
 
-      if (testsError) throw testsError;
+      // Process Bloom's distribution
+      const bloomCounts: Record<string, number> = {};
+      const bloomColors: Record<string, string> = {
+        'Remembering': '#8884d8',
+        'Understanding': '#82ca9d',
+        'Applying': '#ffc658',
+        'Analyzing': '#ff7c7c',
+        'Evaluating': '#8dd1e1',
+        'Creating': '#d084d0'
+      };
 
-      // Process Bloom's level distribution
-      const bloomCounts = questions?.reduce((acc: Record<string, number>, q) => {
-        acc[q.bloom_level] = (acc[q.bloom_level] || 0) + 1;
-        return acc;
-      }, {}) || {};
+      questions.forEach(q => {
+        bloomCounts[q.bloom_level] = (bloomCounts[q.bloom_level] || 0) + 1;
+      });
 
-      const bloomDistribution = Object.entries(bloomCounts).map(([name, value], index) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        value: value as number,
-        color: COLORS.bloom[index % COLORS.bloom.length]
+      const bloomDistribution = Object.entries(bloomCounts).map(([name, value]) => ({
+        name,
+        value,
+        color: bloomColors[name] || '#8884d8'
       }));
 
-      // Process difficulty distribution
-      const difficultyCounts = questions?.reduce((acc: Record<string, number>, q) => {
-        acc[q.difficulty] = (acc[q.difficulty] || 0) + 1;
-        return acc;
-      }, {}) || {};
+      // Process difficulty spread
+      const difficultyCounts: Record<string, number> = {};
+      questions.forEach(q => {
+        difficultyCounts[q.difficulty] = (difficultyCounts[q.difficulty] || 0) + 1;
+      });
 
-      const difficultyDistribution = Object.entries(difficultyCounts).map(([name, value], index) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        value: value as number,
-        color: COLORS.difficulty[index % COLORS.difficulty.length]
+      const difficultySpread = Object.entries(difficultyCounts).map(([name, value]) => ({
+        name,
+        value
       }));
 
       // Process topic distribution
-      const topicCounts = questions?.reduce((acc: Record<string, number>, q) => {
-        acc[q.topic] = (acc[q.topic] || 0) + 1;
-        return acc;
-      }, {}) || {};
+      const topicCounts: Record<string, number> = {};
+      questions.forEach(q => {
+        topicCounts[q.topic] = (topicCounts[q.topic] || 0) + 1;
+      });
 
       const topicDistribution = Object.entries(topicCounts)
-        .map(([topic, count]) => ({ topic, count: count as number }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10)
+        .map(([name, value]) => ({ name, value }));
 
-      // Calculate stats
-      const totalQuestions = questions?.length || 0;
-      const approvedQuestions = questions?.filter(q => q.approved).length || 0;
-      const totalTests = tests?.length || 0;
-      const avgConfidence = questions?.length ? 
-        questions.reduce((sum, q) => sum + (q.ai_confidence_score || 0), 0) / questions.length : 0;
+      // Process question creation timeline
+      const dateCounts: Record<string, number> = {};
+      questions.forEach(q => {
+        const date = new Date(q.created_at).toLocaleDateString();
+        dateCounts[date] = (dateCounts[date] || 0) + 1;
+      });
+
+      const questionUsage = Object.entries(dateCounts)
+        .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+        .slice(-30) // Last 30 days
+        .map(([date, count]) => ({ date, count }));
+
+      // Calculate totals
+      const totalQuestions = questions.length;
+      const approvedQuestions = questions.filter(q => q.approved || q.created_by === 'teacher').length;
+      const pendingQuestions = questions.filter(q => !q.approved && q.created_by === 'ai').length;
 
       setData({
         bloomDistribution,
-        difficultyDistribution,
-        topicDistribution
-      });
-
-      setStats({
+        difficultySpread,
+        topicDistribution,
+        questionUsage,
         totalQuestions,
         approvedQuestions,
-        totalTests,
-        avgConfidence
+        pendingQuestions
       });
-
     } catch (error) {
       console.error('Error fetching analytics data:', error);
     } finally {
@@ -125,89 +122,102 @@ export function AnalyticsCharts() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Clock className="h-8 w-8 animate-spin" />
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-6">
+              <div className="animate-pulse">
+                <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
+                <div className="h-8 bg-muted rounded w-1/3"></div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   }
 
+  if (!data) return null;
+
   return (
     <div className="space-y-6">
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Stats Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Questions</p>
-                <p className="text-2xl font-bold">{stats.totalQuestions}</p>
-              </div>
-              <BookOpen className="h-8 w-8 text-blue-500" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Questions</CardTitle>
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.totalQuestions}</div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Approved</p>
-                <p className="text-2xl font-bold">{stats.approvedQuestions}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-500" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Approved Questions</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.approvedQuestions}</div>
+            <p className="text-xs text-muted-foreground">
+              {data.totalQuestions > 0 ? Math.round((data.approvedQuestions / data.totalQuestions) * 100) : 0}% of total
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Tests Generated</p>
-                <p className="text-2xl font-bold">{stats.totalTests}</p>
-              </div>
-              <Target className="h-8 w-8 text-purple-500" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending AI Questions</CardTitle>
+            <Brain className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.pendingQuestions}</div>
+            <p className="text-xs text-muted-foreground">
+              Awaiting approval
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Avg AI Confidence</p>
-                <p className="text-2xl font-bold">{Math.round(stats.avgConfidence * 100)}%</p>
-              </div>
-              <Brain className="h-8 w-8 text-orange-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Question Growth</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {data.questionUsage.length > 0 ? data.questionUsage[data.questionUsage.length - 1].count : 0}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Questions created today
+            </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Bloom's Taxonomy Distribution */}
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5" />
-              Bloom's Taxonomy Distribution
-            </CardTitle>
+            <CardTitle>Bloom's Taxonomy Distribution</CardTitle>
+            <CardDescription>
+              Distribution of questions across cognitive levels
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={data?.bloomDistribution}
+                  data={data.bloomDistribution}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
+                  outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {data?.bloomDistribution.map((entry, index) => (
+                  {data.bloomDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -217,27 +227,62 @@ export function AnalyticsCharts() {
           </CardContent>
         </Card>
 
-        {/* Difficulty Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Difficulty Distribution
-            </CardTitle>
+            <CardTitle>Difficulty Distribution</CardTitle>
+            <CardDescription>
+              Questions by difficulty level
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data?.difficultyDistribution}>
+              <BarChart data={data.difficultySpread}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="value" fill="#8884d8">
-                  {data?.difficultyDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
+                <Bar dataKey="value" fill="#8884d8" />
               </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Topics</CardTitle>
+            <CardDescription>
+              Most popular question topics
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={data.topicDistribution} layout="horizontal">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis dataKey="name" type="category" width={100} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#82ca9d" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Question Creation Timeline</CardTitle>
+            <CardDescription>
+              Questions created over time
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={data.questionUsage}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="count" stroke="#8884d8" strokeWidth={2} />
+              </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>

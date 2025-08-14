@@ -17,36 +17,30 @@ export type Database = {
       generated_tests: {
         Row: {
           answer_key: Json
-          created_at: string
-          created_by: string
+          created_at: string | null
           id: string
-          questions: Json
-          test_title: string
+          instructions: string | null
+          items: Json
           tos_id: string | null
-          total_points: number
-          total_questions: number
+          version_label: string | null
         }
         Insert: {
           answer_key: Json
-          created_at?: string
-          created_by?: string
+          created_at?: string | null
           id?: string
-          questions: Json
-          test_title: string
+          instructions?: string | null
+          items: Json
           tos_id?: string | null
-          total_points: number
-          total_questions: number
+          version_label?: string | null
         }
         Update: {
           answer_key?: Json
-          created_at?: string
-          created_by?: string
+          created_at?: string | null
           id?: string
-          questions?: Json
-          test_title?: string
+          instructions?: string | null
+          items?: Json
           tos_id?: string | null
-          total_points?: number
-          total_questions?: number
+          version_label?: string | null
         }
         Relationships: [
           {

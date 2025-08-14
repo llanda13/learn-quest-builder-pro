@@ -300,12 +300,10 @@ export const TOSBuilder = ({ onBack }: TOSBuilderProps) => {
           </CardTitle>
           {showCollaboration && (
             <div className="mt-4">
-              <CollaborativeDocumentManager
-                documentId={documentId}
-                documentType="tos"
+              <CollaborationIndicator
+                isActive={true}
+                activeUsers={[{ name: "Teacher", email: "teacher@example.com" }]}
                 documentTitle="Table of Specification"
-                currentUserEmail="teacher@example.com"
-                isOwner={true}
               />
             </div>
           )}

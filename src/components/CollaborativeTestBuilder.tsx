@@ -183,12 +183,10 @@ export const CollaborativeTestBuilder: React.FC<CollaborativeTestBuilderProps> =
                 </CardTitle>
                 {showCollaboration && (
                   <div className="mt-4">
-                    <CollaborativeDocumentManager
-                      documentId={documentId}
-                      documentType="test"
+                    <CollaborationIndicator
+                      isActive={true}
+                      activeUsers={[{ name: "Teacher", email: "teacher@example.com" }]}
                       documentTitle={testConfig.title || "Untitled Test"}
-                      currentUserEmail="teacher@example.com"
-                      isOwner={true}
                     />
                   </div>
                 )}

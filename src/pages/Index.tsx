@@ -150,15 +150,15 @@ const Index = () => {
         </div>
       )}
 
-      {currentView === 'ai-approval' && user.isAuthenticated && user.role === 'admin' && (
+      {currentView === 'ai-approval' && (
         <AIApprovalWorkflow onBack={() => setCurrentView('dashboard')} />
       )}
 
-      {currentView === 'rubric-manager' && user.isAuthenticated && (
+      {currentView === 'rubric-manager' && (
         <RubricManager onBack={() => setCurrentView('dashboard')} />
       )}
 
-      {currentView === 'multi-version-test' && user.isAuthenticated && (
+      {currentView === 'multi-version-test' && (
         <MultiVersionTestGenerator onBack={() => setCurrentView('dashboard')} />
       )}
 
