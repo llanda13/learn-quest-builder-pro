@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { QuestionBankForm } from "@/components/questionbank/QuestionBankForm";
 import { QuestionBankList } from "@/components/questionbank/QuestionBankList";
+import BulkImport from "@/components/BulkImport";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Database, Upload } from "lucide-react";
@@ -63,29 +64,14 @@ export default function QuestionBank() {
           </TabsContent>
 
           <TabsContent value="bulk" className="mt-6">
-            <div className="border rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-4">Bulk Import Questions</h3>
-              <p className="text-muted-foreground mb-4">
-                Upload a CSV file to import multiple questions at once.
-              </p>
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                  <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Drag and drop your CSV file here, or click to browse
-                  </p>
-                  <Button variant="outline" className="mt-4">
-                    Choose File
-                  </Button>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  <p className="font-medium mb-2">CSV Format:</p>
-                  <code className="bg-muted p-2 rounded text-xs block">
-                    Topic,Question Text,Choice A,Choice B,Choice C,Choice D,Correct Answer,Bloom Level,Difficulty
-                  </code>
-                </div>
-              </div>
-            </div>
+            <BulkImport 
+              onClose={() => setActiveTab("view")}
+              onImportComplete={() => {
+                setActiveTab("view");
+                // Refresh the question list
+                window.location.reload();
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>
