@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Shuffle, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import type { Json } from '@/integrations/supabase/types';
 
 interface Question {
   id: string;
@@ -114,9 +115,11 @@ export default function MultiVersionTestGenerator({ onBack }: MultiVersionTestGe
       const { error } = await supabase
         .from('generated_tests')
         .insert({
-          version_label: version.version,
-          items: version.questions,
-          answer_key: version.answerKey,
+          title: `Test Version ${version.version}`,
+          subject: 'Generated Test',
+          num_versions: 1,
+          versions: version.questions as unknown as Json,
+          answer_keys: version.answerKey as unknown as Json,
           instructions: `Test Version ${version.version}`
         });
 

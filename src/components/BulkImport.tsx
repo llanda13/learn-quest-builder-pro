@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
+import pdfParse from 'pdf-parse';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -63,18 +64,26 @@ export default function BulkImport({
   const [errors, setErrors] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState<string>('General');
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const csvFile = acceptedFiles.find(
-      (file) => file.type === 'text/csv' || file.name.endsWith('.csv')
-    );
+    const file = acceptedFiles[0];
+    
+    if (!file) return;
 
-    if (csvFile) {
-      setFile(csvFile);
+    const isCSV = file.type === 'text/csv' || file.name.endsWith('.csv');
+    const isPDF = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+
+    if (isCSV) {
+      setFile(file);
       setErrors([]);
-      previewCSV(csvFile);
+      previewCSV(file);
+    } else if (isPDF) {
+      setFile(file);
+      setErrors([]);
+      previewPDF(file);
     } else {
-      toast.error('Please upload a CSV file');
+      toast.error('Please upload a CSV or PDF file');
     }
   }, []);
 
@@ -83,6 +92,7 @@ export default function BulkImport({
     accept: {
       'text/csv': ['.csv'],
       'application/vnd.ms-excel': ['.csv'],
+      'application/pdf': ['.pdf'],
     },
     multiple: false,
   });
@@ -99,6 +109,219 @@ export default function BulkImport({
         toast.error(`CSV parsing error: ${error.message}`);
       },
     });
+  };
+
+  const extractQuestionsFromPDF = async (file: File): Promise<any[]> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdfData = await pdfParse(Buffer.from(arrayBuffer));
+      
+      const text = pdfData.text;
+      const questions: any[] = [];
+      
+      // Split by question numbers (1., 2., 3., etc.)
+      const questionBlocks = text.split(/\n?\d+\.\s+/).filter(block => block.trim());
+      
+      questionBlocks.forEach((block, index) => {
+        const lines = block.split('\n').filter(line => line.trim());
+        if (lines.length === 0) return;
+        
+        // Extract question text (first non-empty line)
+        const questionText = lines[0].trim();
+        
+        // Extract choices (A., B., C., D. patterns)
+        const choices: Record<string, string> = {};
+        let correctAnswer = '';
+        
+        lines.slice(1).forEach(line => {
+          const choiceMatch = line.match(/^([A-F])\.\s*(.+)/);
+          if (choiceMatch) {
+            const [, letter, text] = choiceMatch;
+            choices[letter] = text.trim();
+            
+            // Check if this line indicates correct answer (*)
+            if (line.includes('*') || line.includes('✓')) {
+              correctAnswer = letter;
+            }
+          }
+        });
+        
+        // Determine question type
+        let questionType: 'mcq' | 'true_false' | 'essay' | 'short_answer' = 'mcq';
+        if (Object.keys(choices).length === 0) {
+          questionType = 'essay';
+        } else if (Object.keys(choices).length === 2 && 
+                   (choices.A?.toLowerCase().includes('true') || 
+                    choices.A?.toLowerCase().includes('false'))) {
+          questionType = 'true_false';
+        }
+        
+        questions.push({
+          Question: questionText,
+          Type: questionType,
+          ...choices,
+          Correct: correctAnswer || 'A',
+          Topic: selectedTopic,
+        });
+      });
+      
+      return questions;
+    } catch (error) {
+      console.error('PDF parsing error:', error);
+      throw new Error('Failed to parse PDF content');
+    }
+  };
+
+  const previewPDF = async (file: File) => {
+    try {
+      setCurrentStep('Extracting text from PDF...');
+      const questions = await extractQuestionsFromPDF(file);
+      setPreviewData(questions.slice(0, 5));
+      setShowPreview(true);
+      toast.success(`Extracted ${questions.length} questions from PDF`);
+    } catch (error) {
+      toast.error(`PDF parsing error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const processPDFImport = async () => {
+    if (!file) return;
+
+    setIsProcessing(true);
+    setProgress(0);
+    setCurrentStep('Extracting text from PDF...');
+    setErrors([]);
+
+    try {
+      // Extract questions from PDF
+      const rawQuestions = await extractQuestionsFromPDF(file);
+      setProgress(30);
+      
+      if (rawQuestions.length === 0) {
+        throw new Error('No questions found in PDF');
+      }
+
+      // Convert to same format as CSV processing
+      const normalizedData: ParsedQuestion[] = rawQuestions.map(q => ({
+        topic: q.Topic || selectedTopic,
+        question_text: q.Question,
+        question_type: q.Type as 'mcq' | 'true_false' | 'essay' | 'short_answer',
+        choices: q.Type === 'mcq' ? {
+          A: q.A || 'Option A',
+          B: q.B || 'Option B', 
+          C: q.C || 'Option C',
+          D: q.D || 'Option D'
+        } : undefined,
+        correct_answer: q.Correct || 'A',
+        created_by: 'bulk_import',
+        approved: false,
+        needs_review: true,
+      }));
+
+      setProgress(50);
+      setCurrentStep('Classifying questions with AI...');
+
+      // Use same AI classification logic as CSV import
+      try {
+        const classificationInput = normalizedData.map(q => ({
+          text: q.question_text,
+          type: q.question_type,
+          topic: q.topic
+        }));
+
+        const classifications = await classifyQuestions(classificationInput);
+
+        normalizedData.forEach((question, index) => {
+          const classification = classifications[index];
+          if (classification) {
+            question.bloom_level = classification.bloom_level;
+            question.difficulty = classification.difficulty;
+            question.knowledge_dimension = classification.knowledge_dimension;
+            question.ai_confidence_score = classification.confidence;
+            question.needs_review = classification.needs_review;
+
+            if (classification.confidence >= 0.85) {
+              question.approved = true;
+              question.needs_review = false;
+            }
+          }
+        });
+
+        setProgress(70);
+      } catch (aiError) {
+        console.warn('AI classification failed, using fallback:', aiError);
+        
+        normalizedData.forEach((question) => {
+          if (!question.bloom_level) {
+            question.bloom_level = classifyBloom(question.question_text);
+          }
+          if (!question.knowledge_dimension) {
+            question.knowledge_dimension = detectKnowledgeDimension(question.question_text, question.question_type);
+          }
+          if (!question.difficulty) {
+            question.difficulty = inferDifficulty(
+              question.bloom_level as any,
+              question.question_text,
+              question.question_type
+            );
+          }
+          question.ai_confidence_score = 0.6;
+          question.needs_review = true;
+        });
+      }
+
+      setProgress(90);
+      setCurrentStep('Saving to database...');
+
+      // Insert into database
+      const questionsWithDefaults = normalizedData.map(q => ({
+        topic: q.topic || selectedTopic,
+        question_text: q.question_text || '',
+        question_type: (q.question_type as 'mcq' | 'true_false' | 'essay' | 'short_answer') || 'mcq',
+        choices: q.choices || {},
+        correct_answer: q.correct_answer || '',
+        bloom_level: q.bloom_level || 'understanding',
+        difficulty: q.difficulty || 'average',
+        knowledge_dimension: q.knowledge_dimension || 'conceptual',
+        created_by: 'bulk_import' as const,
+        approved: false,
+        ai_confidence_score: q.ai_confidence_score || 0.5,
+        needs_review: (q.needs_review !== false)
+      }));
+
+      await Questions.bulkInsert(questionsWithDefaults);
+
+      setProgress(100);
+      setCurrentStep('Import completed!');
+
+      // Calculate statistics
+      const stats: ImportStats = {
+        total: normalizedData.length,
+        processed: normalizedData.length,
+        approved: normalizedData.filter((q) => q.approved).length,
+        needsReview: normalizedData.filter((q) => q.needs_review).length,
+        byBloom: {},
+        byDifficulty: {},
+        byTopic: {},
+      };
+
+      normalizedData.forEach((q) => {
+        stats.byBloom[q.bloom_level!] = (stats.byBloom[q.bloom_level!] || 0) + 1;
+        stats.byDifficulty[q.difficulty!] = (stats.byDifficulty[q.difficulty!] || 0) + 1;
+        stats.byTopic[q.topic] = (stats.byTopic[q.topic] || 0) + 1;
+      });
+
+      setResults(stats);
+      toast.success(`Successfully imported ${normalizedData.length} questions from PDF!`);
+      onImportComplete();
+
+    } catch (error) {
+      console.error('PDF import error:', error);
+      toast.error(`PDF import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setErrors([error instanceof Error ? error.message : 'Unknown error occurred']);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const validateRow = (row: any, index: number): string[] => {
@@ -180,6 +403,13 @@ export default function BulkImport({
 
   const processImport = async () => {
     if (!file) return;
+
+    // Route to appropriate processor based on file type
+    if (file.name.endsWith('.pdf')) {
+      return processPDFImport();
+    }
+
+    // Original CSV processing logic
 
     setIsProcessing(true);
     setProgress(0);
@@ -466,10 +696,10 @@ export default function BulkImport({
             ) : (
               <div>
                 <p className="text-lg mb-2">
-                  Drag & drop a CSV file here, or click to select
+                  Drag & drop a CSV or PDF file here, or click to select
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Supports .csv files up to 10MB
+                  Supports .csv and .pdf files up to 10MB
                 </p>
               </div>
             )}
@@ -654,6 +884,29 @@ export default function BulkImport({
                   ))}
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Topic Selection for PDF */}
+      {file && file.name.endsWith('.pdf') && !results && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Topic Assignment</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Default Topic for All Questions
+              </label>
+              <input
+                type="text"
+                value={selectedTopic}
+                onChange={(e) => setSelectedTopic(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md"
+                placeholder="Enter topic name"
+              />
             </div>
           </CardContent>
         </Card>

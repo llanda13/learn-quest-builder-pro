@@ -153,7 +153,7 @@ export default function AIApprovalWorkflow({ onBack }: AIApprovalWorkflowProps) 
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-lg">{question.question_text}</CardTitle>
                   <div className="flex gap-2">
-                    <Badge variant="secondary">{question.type}</Badge>
+                    <Badge variant="secondary">{question.question_type}</Badge>
                     <Badge variant="outline">{question.bloom_level}</Badge>
                     <Badge variant="outline">{question.difficulty}</Badge>
                     {question.confidence && (
@@ -170,7 +170,7 @@ export default function AIApprovalWorkflow({ onBack }: AIApprovalWorkflowProps) 
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {question.type === 'mcq' && renderChoices(question.choices)}
+                {question.question_type === 'mcq' && renderChoices(question.choices)}
                 {question.correct_answer && (
                   <div className="mt-2">
                     <strong>Correct Answer:</strong> {question.correct_answer}
