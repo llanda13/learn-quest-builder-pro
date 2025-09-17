@@ -2,14 +2,24 @@ import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Upload, FileText, AlertCircle, CheckCircle, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Upload,
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  X,
+  Download,
+  Brain,
+  Sparkles,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { Questions } from '@/services/db/questions';
+import { classifyQuestions } from '@/services/edgeFunctions';
+import { classifyBloom, detectKnowledgeDimension, inferDifficulty } from '@/services/ai/classify';
 
 interface BulkImportProps {
   onClose: () => void;
@@ -19,36 +29,52 @@ interface BulkImportProps {
 interface ParsedQuestion {
   topic: string;
   question_text: string;
-  choice_a?: string;
-  choice_b?: string;
-  choice_c?: string;
-  choice_d?: string;
+  question_type: 'mcq' | 'true_false' | 'essay' | 'short_answer';
+  choices?: Record<string, string>;
   correct_answer?: string;
-}
-
-interface ClassifiedQuestion extends ParsedQuestion {
-  bloom_level: string;
-  difficulty: string;
-  knowledge_dimension: string;
-  question_type: string;
-  ai_confidence_score: number;
+  bloom_level?: string;
+  difficulty?: string;
+  knowledge_dimension?: string;
+  created_by: 'bulk_import';
+  approved: boolean;
   needs_review: boolean;
+  ai_confidence_score?: number;
 }
 
-const BulkImport: React.FC<BulkImportProps> = ({ onClose, onImportComplete }) => {
+interface ImportStats {
+  total: number;
+  processed: number;
+  approved: number;
+  needsReview: number;
+  byBloom: Record<string, number>;
+  byDifficulty: Record<string, number>;
+  byTopic: Record<string, number>;
+}
+
+export default function BulkImport({
+  onClose,
+  onImportComplete,
+}: BulkImportProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [parsedQuestions, setParsedQuestions] = useState<ParsedQuestion[]>([]);
-  const [classifiedQuestions, setClassifiedQuestions] = useState<ClassifiedQuestion[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [currentStep, setCurrentStep] = useState<'upload' | 'classify' | 'review' | 'import'>('upload');
+  const [currentStep, setCurrentStep] = useState('');
+  const [results, setResults] = useState<ImportStats | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const uploadedFile = acceptedFiles[0];
-    if (uploadedFile) {
-      setFile(uploadedFile);
-      parseFile(uploadedFile);
+    const csvFile = acceptedFiles.find(
+      (file) => file.type === 'text/csv' || file.name.endsWith('.csv')
+    );
+
+    if (csvFile) {
+      setFile(csvFile);
+      setErrors([]);
+      previewCSV(csvFile);
+    } else {
+      toast.error('Please upload a CSV file');
     }
   }, []);
 
@@ -56,421 +82,599 @@ const BulkImport: React.FC<BulkImportProps> = ({ onClose, onImportComplete }) =>
     onDrop,
     accept: {
       'text/csv': ['.csv'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+      'application/vnd.ms-excel': ['.csv'],
     },
-    maxFiles: 1
+    multiple: false,
   });
 
-  const parseFile = (file: File) => {
-    const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    
-    if (fileExtension === 'csv') {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          const questions = results.data as ParsedQuestion[];
-          const validQuestions = questions.filter(q => q.topic && q.question_text);
-          setParsedQuestions(validQuestions);
-          setCurrentStep('classify');
-          
-          if (results.errors.length > 0) {
-            setErrors(results.errors.map(err => err.message));
-          }
-        },
-        error: (error) => {
-          setErrors([`CSV parsing error: ${error.message}`]);
-        }
-      });
-    } else {
-      setErrors(['Only CSV files are currently supported. Excel support coming soon!']);
-    }
+  const previewCSV = (file: File) => {
+    Papa.parse(file, {
+      header: true,
+      preview: 5,
+      complete: (results) => {
+        setPreviewData(results.data);
+        setShowPreview(true);
+      },
+      error: (error) => {
+        toast.error(`CSV parsing error: ${error.message}`);
+      },
+    });
   };
 
-  const classifyQuestions = async () => {
-    if (parsedQuestions.length === 0) return;
-    
+  const validateRow = (row: any, index: number): string[] => {
+    const errors: string[] = [];
+
+    if (!row.Question && !row.question_text && !row['Question Text']) {
+      errors.push(`Row ${index + 1}: Missing question text`);
+    }
+
+    if (!row.Topic && !row.topic) {
+      errors.push(`Row ${index + 1}: Missing topic`);
+    }
+
+    return errors;
+  };
+
+  const normalizeRow = (row: any): Partial<ParsedQuestion> => {
+    // Flexible column mapping
+    const questionText =
+      row.Question || row.question_text || row['Question Text'] || '';
+    const topic = row.Topic || row.topic || '';
+    const type = (
+      row.Type ||
+      row.type ||
+      row.question_type ||
+      'mcq'
+    ).toLowerCase();
+
+    // Normalize question type
+    let question_type: ParsedQuestion['question_type'] = 'mcq';
+    if (type.includes('true') || type.includes('false') || type === 'tf') {
+      question_type = 'true_false';
+    } else if (type.includes('essay')) {
+      question_type = 'essay';
+    } else if (type.includes('short') || type.includes('fill')) {
+      question_type = 'short_answer';
+    }
+
+    // Extract choices for MCQ
+    let choices: Record<string, string> | undefined;
+    if (question_type === 'mcq') {
+      choices = {};
+      ['A', 'B', 'C', 'D', 'E', 'F'].forEach((letter) => {
+        const choice =
+          row[letter] ||
+          row[`Choice ${letter}`] ||
+          row[`choice_${letter.toLowerCase()}`];
+        if (choice && choice.trim()) {
+          choices![letter] = choice.trim();
+        }
+      });
+
+      // If no choices found, default to placeholder choices
+      if (Object.keys(choices).length === 0) {
+        choices = {
+          A: 'Option A',
+          B: 'Option B',
+          C: 'Option C',
+          D: 'Option D',
+        };
+      }
+    }
+
+    return {
+      topic: topic.trim(),
+      question_text: questionText.trim(),
+      question_type,
+      choices,
+      correct_answer:
+        row.Correct || row.correct_answer || row['Correct Answer'] || 'A',
+      bloom_level: row.Bloom || row.bloom_level || row['Bloom Level'],
+      difficulty: row.Difficulty || row.difficulty,
+      knowledge_dimension:
+        row.KnowledgeDimension ||
+        row.knowledge_dimension ||
+        row['Knowledge Dimension'],
+    };
+  };
+
+  const processImport = async () => {
+    if (!file) return;
+
     setIsProcessing(true);
     setProgress(0);
-    
+    setCurrentStep('Parsing CSV file...');
+    setErrors([]);
+
     try {
-      // Process questions in batches of 5 to avoid rate limits
-      const batchSize = 5;
-      const classified: ClassifiedQuestion[] = [];
-      
-      for (let i = 0; i < parsedQuestions.length; i += batchSize) {
-        const batch = parsedQuestions.slice(i, i + batchSize);
-        
-        // Format questions for API
-        const formattedQuestions = batch.map(q => ({
-          topic: q.topic,
-          question_text: q.question_text,
-          choices: q.choice_a ? {
-            A: q.choice_a,
-            B: q.choice_b || '',
-            C: q.choice_c || '',
-            D: q.choice_d || ''
-          } : undefined,
-          correct_answer: q.correct_answer
+      // Parse CSV
+      const parseResult = await new Promise<Papa.ParseResult<any>>(
+        (resolve, reject) => {
+          Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: resolve,
+            error: reject,
+          });
+        }
+      );
+
+      const rawData = parseResult.data;
+      setProgress(20);
+      setCurrentStep('Validating data...');
+
+      // Validate and normalize data
+      const validationErrors: string[] = [];
+      const normalizedData: ParsedQuestion[] = [];
+
+      rawData.forEach((row, index) => {
+        const rowErrors = validateRow(row, index);
+        validationErrors.push(...rowErrors);
+
+        if (rowErrors.length === 0) {
+          const normalized = normalizeRow(row);
+          normalizedData.push({
+            ...normalized,
+            created_by: 'bulk_import',
+            approved: false,
+            needs_review: true,
+          } as ParsedQuestion);
+        }
+      });
+
+      if (validationErrors.length > 0) {
+        setErrors(validationErrors);
+        setIsProcessing(false);
+        return;
+      }
+
+      setProgress(40);
+      setCurrentStep('Classifying questions with AI...');
+
+      // Classify questions using AI
+      try {
+        const classificationInput = normalizedData.map(q => ({
+          text: q.question_text,
+          type: q.question_type,
+          topic: q.topic
         }));
 
-        const { data, error } = await supabase.functions.invoke('classify-questions', {
-          body: { questions: formattedQuestions }
+        const classifications = await classifyQuestions(classificationInput);
+
+        // Apply AI classifications
+        normalizedData.forEach((question, index) => {
+          const classification = classifications[index];
+          if (classification) {
+            question.bloom_level =
+              question.bloom_level || classification.bloom_level;
+            question.difficulty =
+              question.difficulty || classification.difficulty;
+            question.knowledge_dimension =
+              question.knowledge_dimension ||
+              classification.knowledge_dimension;
+            question.ai_confidence_score = classification.confidence;
+            question.needs_review = classification.needs_review;
+
+            // Auto-approve high confidence questions
+            if (classification.confidence >= 0.85) {
+              question.approved = true;
+              question.needs_review = false;
+            }
+          }
         });
 
-        if (error) {
-          throw new Error(`Classification error: ${error.message}`);
-        }
+        setProgress(60);
+        setCurrentStep('AI classification completed successfully');
+      } catch (aiError) {
+        console.warn('AI classification failed, using fallback:', aiError);
+        toast.warning(
+          'AI classification unavailable, using rule-based classification'
+        );
 
-        if (data.success) {
-          classified.push(...data.classified_questions);
-        }
-        
-        setProgress((i + batchSize) / parsedQuestions.length * 100);
+        setProgress(50);
+        setCurrentStep('Applying fallback classification...');
+
+        // Fallback to local classification
+        normalizedData.forEach((question) => {
+          if (!question.bloom_level) {
+            question.bloom_level = classifyBloom(question.question_text);
+          }
+          if (!question.knowledge_dimension) {
+            question.knowledge_dimension = detectKnowledgeDimension(question.question_text, question.question_type);
+          }
+          if (!question.difficulty) {
+            question.difficulty = inferDifficulty(
+              question.bloom_level as any,
+              question.question_text,
+              question.question_type
+            );
+          }
+          question.ai_confidence_score = 0.6;
+          question.needs_review = true;
+        });
+
+        setProgress(60);
+        setCurrentStep('Fallback classification completed');
       }
-      
-      setClassifiedQuestions(classified);
-      setCurrentStep('review');
-      toast({
-        title: "Classification Complete",
-        description: `Successfully classified ${classified.length} questions`,
-      });
-      
-    } catch (error) {
-      console.error('Classification error:', error);
-      setErrors([`Classification failed: ${error.message}`]);
-      toast({
-        title: "Classification Failed",
-        description: "Please try again or check your questions format",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-      setProgress(0);
-    }
-  };
 
-  const importQuestions = async () => {
-    if (classifiedQuestions.length === 0) return;
-    
-    setIsProcessing(true);
-    setProgress(0);
-    setCurrentStep('import');
-    
-    try {
-      const questionsToInsert = classifiedQuestions.map(q => ({
-        topic: q.topic,
-        question_text: q.question_text,
-        question_type: q.question_type,
-        choices: q.choice_a ? {
-          A: q.choice_a,
-          B: q.choice_b || '',
-          C: q.choice_c || '',
-          D: q.choice_d || ''
-        } : null,
-        correct_answer: q.correct_answer || null,
-        bloom_level: q.bloom_level,
-        difficulty: q.difficulty,
-        knowledge_dimension: q.knowledge_dimension,
-        ai_confidence_score: q.ai_confidence_score,
-        needs_review: q.needs_review,
-        created_by: 'bulk_import'
+      setProgress(80);
+      setCurrentStep('Saving to database...');
+
+      // Ensure all required fields are present with proper types
+      const questionsWithDefaults = normalizedData.map(q => ({
+        topic: q.topic || 'General',
+        question_text: q.question_text || '',
+        question_type: (q.question_type as 'mcq' | 'true_false' | 'essay' | 'short_answer') || 'mcq',
+        choices: q.choices || {},
+        correct_answer: q.correct_answer || '',
+        bloom_level: q.bloom_level || 'understanding',
+        difficulty: q.difficulty || 'average',
+        knowledge_dimension: q.knowledge_dimension || 'conceptual',
+        created_by: 'bulk_import' as const,
+        approved: false,
+        ai_confidence_score: q.ai_confidence_score || 0.5,
+        needs_review: (q.needs_review !== false)
       }));
 
-      // Add AI auto-approval logic
-      const questionsWithApproval = questionsToInsert.map(question => ({
-        ...question,
-        // Auto-approve if AI confidence is high (>= 0.8)
-        approved: (question.ai_confidence_score || 0) >= 0.8,
-        approved_by: (question.ai_confidence_score || 0) >= 0.8 ? 'AI' : null,
-        approval_confidence: question.ai_confidence_score,
-        approval_notes: (question.ai_confidence_score || 0) >= 0.8 
-          ? 'Auto-approved by AI due to high confidence score' 
-          : 'Requires manual review due to low confidence score'
-      }));
-
-      const { error } = await (supabase as any)
-        .from('questions')
-        .insert(questionsWithApproval);
-
-      if (error) {
-        throw new Error(`Database error: ${error.message}`);
-      }
+      // Insert into database using the Questions service
+      const insertedQuestions = await Questions.bulkInsert(questionsWithDefaults);
 
       setProgress(100);
-      toast({
-        title: "Import Successful",
-        description: `Successfully imported ${questionsToInsert.length} questions`,
+      setCurrentStep('Import completed!');
+
+      // Calculate statistics
+      const stats: ImportStats = {
+        total: normalizedData.length,
+        processed: normalizedData.length,
+        approved: normalizedData.filter((q) => q.approved).length,
+        needsReview: normalizedData.filter((q) => q.needs_review).length,
+        byBloom: {},
+        byDifficulty: {},
+        byTopic: {},
+      };
+
+      normalizedData.forEach((q) => {
+        stats.byBloom[q.bloom_level!] =
+          (stats.byBloom[q.bloom_level!] || 0) + 1;
+        stats.byDifficulty[q.difficulty!] =
+          (stats.byDifficulty[q.difficulty!] || 0) + 1;
+        stats.byTopic[q.topic] = (stats.byTopic[q.topic] || 0) + 1;
       });
-      
-      setTimeout(() => {
-        onImportComplete();
-        onClose();
-      }, 1000);
-      
+
+      setResults(stats);
+      toast.success(
+        `Successfully imported ${normalizedData.length} questions!`
+      );
+
+      // Trigger refresh of parent component
+      onImportComplete();
     } catch (error) {
       console.error('Import error:', error);
-      setErrors([`Import failed: ${error.message}`]);
-      toast({
-        title: "Import Failed",
-        description: "Please try again",
-        variant: "destructive",
-      });
+      toast.error(
+        `Import failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
+      setErrors([
+        error instanceof Error ? error.message : 'Unknown error occurred',
+      ]);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const resetImport = () => {
-    setFile(null);
-    setParsedQuestions([]);
-    setClassifiedQuestions([]);
-    setCurrentStep('upload');
-    setErrors([]);
-    setProgress(0);
+  const downloadTemplate = () => {
+    const template = [
+      {
+        Topic: 'Requirements Engineering',
+        Question:
+          'Define what a functional requirement is in software development.',
+        Type: 'mcq',
+        A: 'A requirement that specifies what the system should do',
+        B: 'A requirement that specifies how the system should perform',
+        C: 'A requirement that specifies system constraints',
+        D: 'A requirement that specifies user interface design',
+        Correct: 'A',
+        Bloom: 'remembering',
+        Difficulty: 'easy',
+        KnowledgeDimension: 'factual',
+      },
+      {
+        Topic: 'Data Modeling',
+        Question:
+          'Explain the difference between conceptual and logical data models.',
+        Type: 'essay',
+        Correct:
+          'Conceptual models show high-level entities and relationships, while logical models include detailed attributes and constraints.',
+        Bloom: 'understanding',
+        Difficulty: 'average',
+        KnowledgeDimension: 'conceptual',
+      },
+    ];
+
+    const csv = Papa.unparse(template);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'question_import_template.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success('Template downloaded successfully!');
   };
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Bulk Import Questions</h2>
           <p className="text-muted-foreground">
-            Upload a CSV file and let AI classify your questions automatically
+            Import questions from CSV with AI-powered classification
           </p>
         </div>
         <Button variant="outline" onClick={onClose}>
-          <X className="w-4 h-4 mr-2" />
+          <X className="h-4 w-4 mr-2" />
           Close
         </Button>
       </div>
 
-      {/* Progress Steps */}
-      <div className="flex items-center space-x-4">
-        {['upload', 'classify', 'review', 'import'].map((step, index) => (
-          <div key={step} className="flex items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              currentStep === step ? 'bg-primary text-primary-foreground' :
-              ['upload', 'classify', 'review', 'import'].indexOf(currentStep) > index ? 'bg-green-500 text-white' :
-              'bg-muted text-muted-foreground'
-            }`}>
-              {['upload', 'classify', 'review', 'import'].indexOf(currentStep) > index ? (
-                <CheckCircle className="w-4 h-4" />
-              ) : (
-                index + 1
-              )}
-            </div>
-            <span className="ml-2 text-sm capitalize">{step}</span>
-            {index < 3 && <div className="w-8 h-px bg-border mx-4" />}
-          </div>
-        ))}
-      </div>
+      {/* Template Download */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5" />
+            CSV Template
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Download our CSV template to ensure your data is formatted correctly
+            for import.
+          </p>
+          <Button onClick={downloadTemplate} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Download Template
+          </Button>
+        </CardContent>
+      </Card>
 
+      {/* File Upload */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5" />
+            Upload CSV File
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div
+            {...getRootProps()}
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+              isDragActive
+                ? 'border-primary bg-primary/5'
+                : 'border-muted-foreground/25 hover:border-primary/50'
+            }`}
+          >
+            <input {...getInputProps()} />
+            <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            {isDragActive ? (
+              <p className="text-lg">Drop the CSV file here...</p>
+            ) : (
+              <div>
+                <p className="text-lg mb-2">
+                  Drag & drop a CSV file here, or click to select
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Supports .csv files up to 10MB
+                </p>
+              </div>
+            )}
+          </div>
+
+          {file && (
+            <div className="mt-4 p-4 bg-muted rounded-lg">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                <span className="font-medium">{file.name}</span>
+                <Badge variant="secondary">
+                  {(file.size / 1024).toFixed(1)} KB
+                </Badge>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Preview */}
+      {showPreview && previewData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Data Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    {Object.keys(previewData[0]).map((key) => (
+                      <th key={key} className="text-left p-2 font-medium">
+                        {key}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.map((row, index) => (
+                    <tr key={index} className="border-b">
+                      {Object.values(row).map((value: any, cellIndex) => (
+                        <td key={cellIndex} className="p-2 max-w-xs truncate">
+                          {String(value)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              Showing first 5 rows. Total rows will be processed during import.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Errors */}
       {errors.length > 0 && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            <ul className="list-disc list-inside">
-              {errors.map((error, index) => (
-                <li key={index}>{error}</li>
-              ))}
-            </ul>
+            <div className="space-y-1">
+              <p className="font-medium">Import errors found:</p>
+              <ul className="list-disc list-inside space-y-1">
+                {errors.slice(0, 10).map((error, index) => (
+                  <li key={index} className="text-sm">
+                    {error}
+                  </li>
+                ))}
+              </ul>
+              {errors.length > 10 && (
+                <p className="text-sm">
+                  ... and {errors.length - 10} more errors
+                </p>
+              )}
+            </div>
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Step 1: File Upload */}
-      {currentStep === 'upload' && (
+      {/* Processing */}
+      {isProcessing && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <Upload className="w-5 h-5 mr-2" />
-              Upload CSV File
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 animate-pulse" />
+              Processing Import
             </CardTitle>
-            <CardDescription>
-              Upload a CSV file with columns: topic, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer
-            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
-              }`}
-            >
-              <input {...getInputProps()} />
-              <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              {isDragActive ? (
-                <p>Drop the CSV file here...</p>
-              ) : (
-                <div>
-                  <p className="text-lg font-medium mb-2">
-                    Drag & drop a CSV file here, or click to select
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Supported formats: CSV (Excel support coming soon)
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            {file && (
-              <div className="mt-4 p-4 bg-muted rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{file.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {(file.size / 1024).toFixed(2)} KB • {parsedQuestions.length} questions found
-                    </p>
-                  </div>
-                  <Button onClick={resetImport} variant="outline" size="sm">
-                    Remove
-                  </Button>
-                </div>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span>{currentStep}</span>
+                <span>{progress}%</span>
               </div>
-            )}
+              <Progress value={progress} className="w-full" />
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 2: Classification */}
-      {currentStep === 'classify' && (
+      {/* Results */}
+      {results && (
         <Card>
           <CardHeader>
-            <CardTitle>AI Classification</CardTitle>
-            <CardDescription>
-              {parsedQuestions.length} questions ready for AI classification
-            </CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Import Results
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span>Questions will be classified by:</span>
-              <div className="flex space-x-2">
-                <Badge variant="outline">Bloom's Level</Badge>
-                <Badge variant="outline">Difficulty</Badge>
-                <Badge variant="outline">Knowledge Type</Badge>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">
+                  {results.total}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Total Imported
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-500">
+                  {results.approved}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Auto-Approved
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-yellow-500">
+                  {results.needsReview}
+                </div>
+                <div className="text-sm text-muted-foreground">Need Review</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-500">
+                  {Object.keys(results.byTopic).length}
+                </div>
+                <div className="text-sm text-muted-foreground">Topics</div>
               </div>
             </div>
-            
-            {isProcessing && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Classifying questions...</span>
-                  <span>{Math.round(progress)}%</span>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <h4 className="font-medium mb-2">By Bloom Level</h4>
+                <div className="space-y-1">
+                  {Object.entries(results.byBloom).map(([level, count]) => (
+                    <div key={level} className="flex justify-between text-sm">
+                      <span className="capitalize">{level}</span>
+                      <Badge variant="secondary">{count}</Badge>
+                    </div>
+                  ))}
                 </div>
-                <Progress value={progress} />
               </div>
-            )}
-            
-            <Button 
-              onClick={classifyQuestions} 
-              disabled={isProcessing}
-              className="w-full"
-            >
-              {isProcessing ? 'Classifying...' : 'Start AI Classification'}
-            </Button>
+
+              <div>
+                <h4 className="font-medium mb-2">By Difficulty</h4>
+                <div className="space-y-1">
+                  {Object.entries(results.byDifficulty).map(
+                    ([difficulty, count]) => (
+                      <div
+                        key={difficulty}
+                        className="flex justify-between text-sm"
+                      >
+                        <span className="capitalize">{difficulty}</span>
+                        <Badge variant="secondary">{count}</Badge>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-2">By Topic</h4>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {Object.entries(results.byTopic).map(([topic, count]) => (
+                    <div key={topic} className="flex justify-between text-sm">
+                      <span className="truncate">{topic}</span>
+                      <Badge variant="secondary">{count}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 3: Review */}
-      {currentStep === 'review' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Review Classifications</CardTitle>
-            <CardDescription>
-              Review the AI classifications before importing
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Total Questions:</span>
-                <p className="text-2xl font-bold">{classifiedQuestions.length}</p>
-              </div>
-              <div>
-                <span className="font-medium">Need Review:</span>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {classifiedQuestions.filter(q => q.needs_review).length}
-                </p>
-              </div>
-              <div>
-                <span className="font-medium">High Confidence:</span>
-                <p className="text-2xl font-bold text-green-600">
-                  {classifiedQuestions.filter(q => q.ai_confidence_score >= 0.8).length}
-                </p>
-              </div>
-              <div>
-                <span className="font-medium">MCQ Questions:</span>
-                <p className="text-2xl font-bold">
-                  {classifiedQuestions.filter(q => q.question_type === 'mcq').length}
-                </p>
-              </div>
-            </div>
-            
-            <Separator />
-            
-            <div className="max-h-64 overflow-y-auto space-y-2">
-              {classifiedQuestions.slice(0, 5).map((question, index) => (
-                <div key={index} className="p-3 border rounded-lg text-sm">
-                  <p className="font-medium mb-2">{question.question_text}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">{question.topic}</Badge>
-                    <Badge variant="outline">{question.bloom_level}</Badge>
-                    <Badge variant="outline">{question.difficulty}</Badge>
-                    <Badge variant="outline">{question.knowledge_dimension}</Badge>
-                    {question.needs_review && (
-                      <Badge variant="destructive">Needs Review</Badge>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {classifiedQuestions.length > 5 && (
-                <p className="text-center text-muted-foreground">
-                  ... and {classifiedQuestions.length - 5} more questions
-                </p>
-              )}
-            </div>
-            
-            <Button onClick={importQuestions} className="w-full">
-              Import All Questions
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Action Buttons */}
+      <div className="flex gap-2">
+        {file && !isProcessing && !results && (
+          <Button onClick={processImport} className="flex-1">
+            <Sparkles className="h-4 w-4 mr-2" />
+            Process Import
+          </Button>
+        )}
 
-      {/* Step 4: Import Progress */}
-      {currentStep === 'import' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Importing Questions</CardTitle>
-            <CardDescription>
-              Adding questions to the database...
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Import progress...</span>
-                <span>{Math.round(progress)}%</span>
-              </div>
-              <Progress value={progress} />
-            </div>
-            
-            {progress === 100 && (
-              <Alert>
-                <CheckCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Successfully imported {classifiedQuestions.length} questions!
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      )}
+        {results && (
+          <Button onClick={onClose} className="flex-1">
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Complete
+          </Button>
+        )}
+      </div>
     </div>
   );
-};
-
-export default BulkImport;
+}

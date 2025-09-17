@@ -6,11 +6,8 @@ import { Dashboard } from "@/components/Dashboard";
 import { TOSBuilder } from "@/components/TOSBuilder";
 import { QuestionBank } from "@/components/QuestionBank";
 import { TestGenerator } from "@/components/TestGenerator";
-import { AIApprovalWorkflow } from "@/components/AIApprovalWorkflow";
-import { RubricManager } from "@/components/RubricManager";
-import { MultiVersionTestGenerator } from "@/components/MultiVersionTestGenerator";
 import { CollaborativeQuestionBank } from "@/components/CollaborativeQuestionBank";
-import { EssayGradingInterface } from "@/components/EssayGradingInterface";
+import EssayGradingInterface from "@/components/EssayGradingInterface";
 import { toast } from "sonner";
 
 const Index = () => {
@@ -150,16 +147,31 @@ const Index = () => {
         </div>
       )}
 
-      {currentView === 'ai-approval' && (
-        <AIApprovalWorkflow onBack={() => setCurrentView('dashboard')} />
+      {currentView === 'ai-approval' && user.isAuthenticated && user.role === 'admin' && (
+        <div className="container mx-auto py-8">
+          <div className="text-center p-8">
+            <h2 className="text-2xl font-bold mb-4">AI Approval Workflow</h2>
+            <p className="text-muted-foreground">Feature temporarily disabled for system stability</p>
+          </div>
+        </div>
       )}
 
-      {currentView === 'rubric-manager' && (
-        <RubricManager onBack={() => setCurrentView('dashboard')} />
+      {currentView === 'rubric-manager' && user.isAuthenticated && (
+        <div className="container mx-auto py-8">
+          <div className="text-center p-8">
+            <h2 className="text-2xl font-bold mb-4">Rubric Manager</h2>
+            <p className="text-muted-foreground">Feature temporarily disabled for system stability</p>
+          </div>
+        </div>
       )}
 
-      {currentView === 'multi-version-test' && (
-        <MultiVersionTestGenerator onBack={() => setCurrentView('dashboard')} />
+      {currentView === 'multi-version-test' && user.isAuthenticated && (
+        <div className="container mx-auto py-8">
+          <div className="text-center p-8">
+            <h2 className="text-2xl font-bold mb-4">Multi-Version Test Generator</h2>
+            <p className="text-muted-foreground">Feature temporarily disabled for system stability</p>
+          </div>
+        </div>
       )}
 
       {currentView === 'collaborative-questions' && user.isAuthenticated && (
@@ -169,7 +181,7 @@ const Index = () => {
       )}
 
       {currentView === 'essay-grading' && user.isAuthenticated && (
-        <EssayGradingInterface onBack={() => setCurrentView('dashboard')} />
+        <EssayGradingInterface />
       )}
     </div>
   );
