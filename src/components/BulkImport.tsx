@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
-import pdfParse from 'pdf-parse';
+import * as pdfjsLib from 'pdfjs-dist';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -113,10 +113,20 @@ export default function BulkImport({
 
   const extractQuestionsFromPDF = async (file: File): Promise<any[]> => {
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdfData = await pdfParse(Buffer.from(arrayBuffer));
+      // Set up PDF.js worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
       
-      const text = pdfData.text;
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      
+      let text = '';
+      // Extract text from all pages
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        text += pageText + '\n';
+      }
       const questions: any[] = [];
       
       // Split by question numbers (1., 2., 3., etc.)
