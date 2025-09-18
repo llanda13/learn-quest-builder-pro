@@ -11,47 +11,63 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
-  Brain
+  Brain,
+  Shield
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/auth"
+import { useUserRole } from "@/hooks/useUserRole"
 
 const menuItems = [
   { 
     title: "Dashboard", 
     href: "/", 
     icon: LayoutDashboard,
-    description: "Overview and analytics" 
+    description: "Overview and analytics",
+    roles: ["admin", "teacher"]
   },
   { 
     title: "Table of Specifications", 
     href: "/tos", 
     icon: FileText,
-    description: "Create test blueprints" 
+    description: "Create test blueprints",
+    roles: ["admin", "teacher"]
   },
   { 
     title: "Question Bank", 
     href: "/question-bank", 
     icon: HelpCircle,
-    description: "Manage test questions" 
+    description: "Manage test questions",
+    roles: ["admin", "teacher"]
   },
   { 
     title: "Test Generator", 
     href: "/generator", 
     icon: ClipboardList,
-    description: "Create and export tests" 
+    description: "Create and export tests",
+    roles: ["admin", "teacher"]
   },
   { 
     title: "AI Assistant", 
     href: "/ai-assistant", 
     icon: Brain,
-    description: "AI-powered question generation" 
+    description: "AI-powered question generation",
+    roles: ["admin", "teacher"]
   },
   { 
     title: "Analytics", 
     href: "/analytics", 
     icon: BarChart3,
-    description: "Usage and performance metrics" 
+    description: "Usage and performance metrics",
+    roles: ["admin"]
+  },
+  { 
+    title: "Admin Panel", 
+    href: "/admin", 
+    icon: Shield,
+    description: "Administrative controls",
+    roles: ["admin"]
   },
 ]
 
@@ -79,6 +95,12 @@ const bottomMenuItems = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const location = useLocation()
+  const { profile } = useAuth()
+  const { role, loading } = useUserRole()
+
+  if (loading) {
+    return null // Or a loading skeleton
+  }
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -119,36 +141,38 @@ export function Sidebar() {
 
       {/* Main Navigation */}
       <nav className="flex-1 p-2 space-y-1">
-        {menuItems.map((item) => {
-          const Icon = item.icon
-          const active = isActive(item.href)
-          
-          return (
-            <Link
-              key={item.href}
-              to={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 group",
-                active 
-                  ? "bg-primary text-primary-foreground shadow-sm" 
-                  : "hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              <Icon className={cn("w-5 h-5 shrink-0", active ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground")} />
-              {!collapsed && (
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">{item.title}</div>
-                  <div className={cn(
-                    "text-xs truncate",
-                    active ? "text-primary-foreground/80" : "text-muted-foreground"
-                  )}>
-                    {item.description}
+        {menuItems
+          .filter(item => item.roles.includes(role))
+          .map((item) => {
+            const Icon = item.icon
+            const active = isActive(item.href)
+            
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 group",
+                  active 
+                    ? "bg-primary text-primary-foreground shadow-sm" 
+                    : "hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                <Icon className={cn("w-5 h-5 shrink-0", active ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground")} />
+                {!collapsed && (
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{item.title}</div>
+                    <div className={cn(
+                      "text-xs truncate",
+                      active ? "text-primary-foreground/80" : "text-muted-foreground"
+                    )}>
+                      {item.description}
+                    </div>
                   </div>
-                </div>
-              )}
-            </Link>
-          )
-        })}
+                )}
+              </Link>
+            )
+          })}
       </nav>
 
       {/* Bottom Navigation */}
@@ -187,8 +211,8 @@ export function Sidebar() {
               <User className="w-4 h-4 text-white" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="font-medium text-sm">John Educator</div>
-              <div className="text-xs text-muted-foreground">Admin</div>
+              <div className="font-medium text-sm">{profile?.full_name || 'User'}</div>
+              <div className="text-xs text-muted-foreground capitalize">{role}</div>
             </div>
           </div>
         </div>
