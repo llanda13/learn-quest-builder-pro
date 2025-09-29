@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +18,9 @@ type ClassificationOutput = {
   difficulty: 'easy' | 'average' | 'difficult';
   knowledge_dimension: 'factual' | 'conceptual' | 'procedural' | 'metacognitive';
   confidence: number;           // 0..1
+  quality_score: number;       // 0..1
+  readability_score: number;   // Grade level
+  semantic_vector: number[];   // Embedding vector
   needs_review: boolean;
 };
 
@@ -173,6 +177,69 @@ function guessDifficulty(text: string, type: ClassificationInput['type'], bloom:
   return 'average'; // default
 }
 
+function calculateQualityScore(text: string, type: string): number {
+  let score = 1.0;
+  
+  // Length appropriateness
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount < 5) score -= 0.3;
+  if (wordCount > 50) score -= 0.2;
+  
+  // Grammar and structure
+  if (!/[.?!]$/.test(text.trim())) score -= 0.1;
+  if (text.includes('  ')) score -= 0.05; // Double spaces
+  
+  // Question clarity
+  if (type === 'mcq' && !text.includes('?') && !text.toLowerCase().includes('which')) {
+    score -= 0.1;
+  }
+  
+  return Math.max(0, Math.min(1, score));
+}
+
+function calculateReadabilityScore(text: string): number {
+  const words = text.split(/\s+/).length;
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim()).length;
+  const syllables = estimateSyllables(text);
+  
+  // Flesch-Kincaid Grade Level
+  if (sentences === 0) return 8.0;
+  return 0.39 * (words / sentences) + 11.8 * (syllables / words) - 15.59;
+}
+
+function estimateSyllables(text: string): number {
+  return text.toLowerCase()
+    .replace(/[^a-z]/g, '')
+    .replace(/[aeiou]{2,}/g, 'a')
+    .replace(/[^aeiou]/g, '')
+    .length || 1;
+}
+
+function generateSemanticVector(text: string): number[] {
+  // Simplified semantic vector (in production, use actual embeddings)
+  const words = text.toLowerCase().split(/\s+/);
+  const vector = new Array(50).fill(0);
+  
+  words.forEach((word, index) => {
+    const hash = simpleHash(word);
+    vector[hash % 50] += 1;
+  });
+  
+  // Normalize
+  const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
+  return magnitude > 0 ? vector.map(val => val / magnitude) : vector;
+}
+
+function simpleHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -189,6 +256,9 @@ serve(async (req) => {
     const results: ClassificationOutput[] = payload.map(({ text, type, topic }) => {
       const { bloom_level, knowledge_dimension, confidence } = guessBloomAndKD(text, type);
       const difficulty = guessDifficulty(text, type, bloom_level);
+      const quality_score = calculateQualityScore(text, type);
+      const readability_score = calculateReadabilityScore(text);
+      const semantic_vector = generateSemanticVector(text);
       const needs_review = confidence < 0.7; // Flag for manual review if confidence is low
 
       return {
@@ -196,6 +266,9 @@ serve(async (req) => {
         difficulty,
         knowledge_dimension,
         confidence: Math.round(confidence * 100) / 100, // Round to 2 decimal places
+        quality_score: Math.round(quality_score * 100) / 100,
+        readability_score: Math.round(readability_score * 10) / 10,
+        semantic_vector,
         needs_review
       };
     });
