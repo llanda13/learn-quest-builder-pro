@@ -12,6 +12,7 @@ import { EnhancedDashboard } from "./EnhancedDashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { FileText, Brain } from "lucide-react";
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<'landing' | 'auth' | 'dashboard' | 'standard-dashboard' | 'enhanced-dashboard' | 'tos-builder' | 'question-bank' | 'test-generator' | 'ai-approval' | 'rubric-manager' | 'multi-version-test' | 'collaborative-questions' | 'essay-grading'>('landing');
