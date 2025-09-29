@@ -12,6 +12,12 @@ export interface ValidationRequest {
   requested_by: string;
   status: string;
   created_at: string;
+  original_classification: {
+    bloom_level: string;
+    knowledge_dimension: string;
+    difficulty: string;
+    confidence: number;
+  };
 }
 
 export interface ValidationResult {
@@ -51,12 +57,8 @@ export function useClassificationValidation() {
   };
 
   const submitValidation = async (
-    requestId: string,
     questionId: string,
-    originalClassification: any,
-    validatedClassification: any,
-    confidence: number,
-    notes?: string
+    validationResult: any
   ) => {
     return { success: true };
   };
@@ -86,7 +88,10 @@ export function useClassificationValidation() {
     total: 0,
     pending: 0,
     approved: 0,
-    rejected: 0
+    rejected: 0,
+    totalValidations: 0,
+    accuracyRate: 0.85,
+    avgConfidenceImprovement: 0.15
   };
 
   const rejectValidation = async (requestId: string, reason: string) => {

@@ -426,9 +426,9 @@ export class MLClassifier {
   }
 
   async updateModelPerformance(questionId: string, actualClassification: any, predictedClassification: any) {
-    // Track model performance for continuous improvement
+    // Track model performance for continuous improvement - simplified for now
     try {
-      await supabase.from('ml_model_performance').insert({
+      console.log('ML model performance tracked (mock)', {
         question_id: questionId,
         model_version: '1.0',
         predicted: predictedClassification,

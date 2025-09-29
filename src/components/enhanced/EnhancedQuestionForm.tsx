@@ -132,12 +132,7 @@ export const EnhancedQuestionForm: React.FC<EnhancedQuestionFormProps> = ({
   const handleValidateClassification = async () => {
     if (!classification) return;
 
-    await validateClassification({
-      bloom_level: formData.bloom_level as any,
-      difficulty: formData.difficulty as any,
-      knowledge_dimension: formData.knowledge_dimension as any,
-      confidence: 0.95 // Human validation gets high confidence
-    }, 'Manually validated by teacher');
+    await validateClassification();
   };
 
   const updateChoice = (index: number, value: string) => {
