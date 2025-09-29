@@ -7,20 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Upload,
-  FileText,
-  CheckCircle,
-  AlertCircle,
-  X,
-  Download,
-  Brain,
-  Sparkles,
-} from 'lucide-react';
+import { Upload, FileText, CircleCheck as CheckCircle, CircleAlert as AlertCircle, X, Download, Brain, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Questions } from '@/services/db/questions';
 import { classifyQuestions } from '@/services/edgeFunctions';
 import { classifyBloom, detectKnowledgeDimension, inferDifficulty } from '@/services/ai/classify';
+import { useTaxonomyClassification } from '@/hooks/useTaxonomyClassification';
+import { ClassificationConfidence } from '@/components/classification/ClassificationConfidence';
+import { SemanticSimilarity } from '@/components/classification/SemanticSimilarity';
 
 interface BulkImportProps {
   onClose: () => void;
@@ -65,6 +59,14 @@ export default function BulkImport({
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<string>('General');
+  const [classificationResults, setClassificationResults] = useState<any[]>([]);
+  const [showClassificationDetails, setShowClassificationDetails] = useState(false);
+
+  const { batchClassify, buildTaxonomyMatrix } = useTaxonomyClassification({
+    useMLClassifier: true,
+    storeResults: true,
+    checkSimilarity: true
+  });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -231,7 +233,7 @@ export default function BulkImport({
       setProgress(50);
       setCurrentStep('Classifying questions with AI...');
 
-      // Use same AI classification logic as CSV import
+      // Enhanced AI classification with confidence scoring
       try {
         const classificationInput = normalizedData.map(q => ({
           text: q.question_text,
@@ -239,7 +241,8 @@ export default function BulkImport({
           topic: q.topic
         }));
 
-        const classifications = await classifyQuestions(classificationInput);
+        // Use enhanced classification system
+        const classifications = await batchClassify(classificationInput);
 
         normalizedData.forEach((question, index) => {
           const classification = classifications[index];
@@ -248,14 +251,22 @@ export default function BulkImport({
             question.difficulty = classification.difficulty;
             question.knowledge_dimension = classification.knowledge_dimension;
             question.ai_confidence_score = classification.confidence;
+            question.quality_score = classification.quality_score;
+            question.readability_score = classification.readability_score;
             question.needs_review = classification.needs_review;
+            question.classification_confidence = classification.confidence;
 
-            if (classification.confidence >= 0.85) {
+            // Auto-approve high quality, high confidence questions
+            if (classification.confidence >= 0.85 && classification.quality_score >= 0.8) {
               question.approved = true;
               question.needs_review = false;
+              question.validation_status = 'validated';
             }
           }
         });
+
+        // Store classification results for detailed view
+        setClassificationResults(classifications);
 
         setProgress(70);
       } catch (aiError) {
@@ -298,6 +309,13 @@ export default function BulkImport({
         ai_confidence_score: q.ai_confidence_score || 0.5,
         needs_review: (q.needs_review !== false)
       }));
+
+      // Build taxonomy matrix for analysis
+      try {
+        await buildTaxonomyMatrix(questionsWithDefaults);
+      } catch (matrixError) {
+        console.warn('Failed to build taxonomy matrix:', matrixError);
+      }
 
       await Questions.bulkInsert(questionsWithDefaults);
 
@@ -816,9 +834,18 @@ export default function BulkImport({
       {results && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-500" />
               Import Results
+              </div>
+              <Button
+                onClick={() => setShowClassificationDetails(!showClassificationDetails)}
+                variant="outline"
+                size="sm"
+              >
+                {showClassificationDetails ? 'Hide' : 'Show'} Classification Details
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -896,6 +923,28 @@ export default function BulkImport({
               </div>
             </div>
           </CardContent>
+
+          {/* Enhanced Classification Details */}
+          {showClassificationDetails && classificationResults.length > 0 && (
+            <CardContent className="border-t">
+              <div className="space-y-4">
+                <h4 className="font-semibold">AI Classification Analysis</h4>
+                <div className="grid gap-4">
+                  <div className="text-sm space-y-2">
+                    <p><strong>Average Confidence:</strong> {
+                      (classificationResults.reduce((sum, c) => sum + c.confidence, 0) / classificationResults.length * 100).toFixed(1)
+                    }%</p>
+                    <p><strong>Average Quality Score:</strong> {
+                      (classificationResults.reduce((sum, c) => sum + (c.quality_score || 0.7), 0) / classificationResults.length * 100).toFixed(1)
+                    }%</p>
+                    <p><strong>Questions Needing Review:</strong> {
+                      classificationResults.filter(c => c.needs_review).length
+                    }</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
 
