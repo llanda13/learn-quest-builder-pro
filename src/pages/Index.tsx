@@ -8,10 +8,13 @@ import { QuestionBank } from "@/components/QuestionBank";
 import { TestGenerator } from "@/components/TestGenerator";
 import { CollaborativeQuestionBank } from "@/components/CollaborativeQuestionBank";
 import EssayGradingInterface from "@/components/EssayGradingInterface";
+import { EnhancedDashboard } from "./EnhancedDashboard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState<'landing' | 'auth' | 'dashboard' | 'tos-builder' | 'question-bank' | 'test-generator' | 'ai-approval' | 'rubric-manager' | 'multi-version-test' | 'collaborative-questions' | 'essay-grading'>('landing');
+  const [currentView, setCurrentView] = useState<'landing' | 'auth' | 'dashboard' | 'standard-dashboard' | 'enhanced-dashboard' | 'tos-builder' | 'question-bank' | 'test-generator' | 'ai-approval' | 'rubric-manager' | 'multi-version-test' | 'collaborative-questions' | 'essay-grading'>('landing');
   const [user, setUser] = useState<{
     isAuthenticated: boolean;
     role?: 'admin' | 'teacher';
@@ -122,7 +125,55 @@ const Index = () => {
       )}
 
       {currentView === 'dashboard' && user.isAuthenticated && (
+        <div className="container mx-auto py-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold mb-4">Choose Your Dashboard Experience</h2>
+            <div className="grid gap-4 md:grid-cols-2 max-w-4xl mx-auto">
+              <Card className="p-6 cursor-pointer hover:shadow-lg transition-shadow" 
+                    onClick={() => setCurrentView('standard-dashboard')}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-6 h-6" />
+                    Standard Dashboard
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    Basic features with essential tools for test creation and question management
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card className="p-6 cursor-pointer hover:shadow-lg transition-shadow border-2 border-primary/20 bg-primary/5" 
+                    onClick={() => setCurrentView('enhanced-dashboard')}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="w-6 h-6 text-primary" />
+                    Enhanced Dashboard
+                    <Badge variant="default">New!</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    Advanced AI features, quality assurance, psychometric analysis, and ISO 25010 compliance
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {currentView === 'standard-dashboard' && user.isAuthenticated && (
         <Dashboard 
+          userRole={user.role!}
+          userName={user.name!}
+          onNavigate={handleNavigation}
+        />
+      )}
+
+      {currentView === 'enhanced-dashboard' && user.isAuthenticated && (
+        <EnhancedDashboard 
           userRole={user.role!}
           userName={user.name!}
           onNavigate={handleNavigation}
