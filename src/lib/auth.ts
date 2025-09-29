@@ -43,27 +43,13 @@ export const useAuthState = () => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch profile from database
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (profileData) {
-            setProfile({
-              ...profileData,
-              role: (profileData.role as 'admin' | 'teacher') || 'teacher'
-            });
-          } else {
-            // Fallback profile
-            setProfile({
-              id: session.user.id,
-              full_name: session.user.user_metadata?.full_name || 'User',
-              role: session.user.email === 'demonstration595@gmail.com' ? 'admin' : 'teacher',
-              created_at: new Date().toISOString()
-            });
-          }
+          // Create a default profile for now
+          setProfile({
+            id: session.user.id,
+            full_name: session.user.user_metadata?.full_name || 'User',
+            role: session.user.email === 'demonstration595@gmail.com' ? 'admin' : 'teacher',
+            created_at: new Date().toISOString()
+          });
         } else {
           setProfile(null);
         }

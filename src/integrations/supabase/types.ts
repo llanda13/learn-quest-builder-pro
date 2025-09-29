@@ -971,10 +971,6 @@ export type Database = {
           knowledge_dimension: string
         }[]
       }
-      is_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
     }
     Enums: {
       bloom_taxonomy:
