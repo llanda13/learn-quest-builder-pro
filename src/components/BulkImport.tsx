@@ -34,6 +34,10 @@ interface ParsedQuestion {
   approved: boolean;
   needs_review: boolean;
   ai_confidence_score?: number;
+  quality_score?: number;
+  readability_score?: number;
+  classification_confidence?: number;
+  validation_status?: string;
 }
 
 interface ImportStats {
