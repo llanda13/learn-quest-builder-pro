@@ -268,32 +268,87 @@ export type Database = {
       generated_tests: {
         Row: {
           answer_key: Json
+          course: string | null
           created_at: string | null
+          created_by: string | null
+          exam_period: string | null
           id: string
           instructions: string | null
           items: Json
+          parent_test_id: string | null
+          points_per_question: number | null
+          question_order: Json | null
+          school_year: string | null
+          shuffle_choices: boolean | null
+          shuffle_questions: boolean | null
+          shuffle_seed: string | null
+          subject: string | null
+          time_limit: number | null
+          title: string | null
           tos_id: string | null
           version_label: string | null
+          version_number: number | null
+          watermark_data: Json | null
+          year_section: string | null
         }
         Insert: {
           answer_key: Json
+          course?: string | null
           created_at?: string | null
+          created_by?: string | null
+          exam_period?: string | null
           id?: string
           instructions?: string | null
           items: Json
+          parent_test_id?: string | null
+          points_per_question?: number | null
+          question_order?: Json | null
+          school_year?: string | null
+          shuffle_choices?: boolean | null
+          shuffle_questions?: boolean | null
+          shuffle_seed?: string | null
+          subject?: string | null
+          time_limit?: number | null
+          title?: string | null
           tos_id?: string | null
           version_label?: string | null
+          version_number?: number | null
+          watermark_data?: Json | null
+          year_section?: string | null
         }
         Update: {
           answer_key?: Json
+          course?: string | null
           created_at?: string | null
+          created_by?: string | null
+          exam_period?: string | null
           id?: string
           instructions?: string | null
           items?: Json
+          parent_test_id?: string | null
+          points_per_question?: number | null
+          question_order?: Json | null
+          school_year?: string | null
+          shuffle_choices?: boolean | null
+          shuffle_questions?: boolean | null
+          shuffle_seed?: string | null
+          subject?: string | null
+          time_limit?: number | null
+          title?: string | null
           tos_id?: string | null
           version_label?: string | null
+          version_number?: number | null
+          watermark_data?: Json | null
+          year_section?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "generated_tests_parent_test_id_fkey"
+            columns: ["parent_test_id"]
+            isOneToOne: false
+            referencedRelation: "generated_tests"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "generated_tests_tos_id_fkey"
             columns: ["tos_id"]
@@ -961,6 +1016,103 @@ export type Database = {
         }
         Relationships: []
       }
+      test_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          seat_number: string | null
+          started_at: string | null
+          status: string | null
+          student_id: string
+          student_name: string
+          submitted_at: string | null
+          test_version_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          seat_number?: string | null
+          started_at?: string | null
+          status?: string | null
+          student_id: string
+          student_name: string
+          submitted_at?: string | null
+          test_version_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          seat_number?: string | null
+          started_at?: string | null
+          status?: string | null
+          student_id?: string
+          student_name?: string
+          submitted_at?: string | null
+          test_version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_assignments_test_version_id_fkey"
+            columns: ["test_version_id"]
+            isOneToOne: false
+            referencedRelation: "generated_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_distribution_logs: {
+        Row: {
+          created_at: string | null
+          distributed_at: string | null
+          distributed_by: string | null
+          distribution_strategy: string
+          id: string
+          parent_test_id: string | null
+          settings: Json | null
+          total_students: number
+          total_versions: number
+        }
+        Insert: {
+          created_at?: string | null
+          distributed_at?: string | null
+          distributed_by?: string | null
+          distribution_strategy: string
+          id?: string
+          parent_test_id?: string | null
+          settings?: Json | null
+          total_students: number
+          total_versions: number
+        }
+        Update: {
+          created_at?: string | null
+          distributed_at?: string | null
+          distributed_by?: string | null
+          distribution_strategy?: string
+          id?: string
+          parent_test_id?: string | null
+          settings?: Json | null
+          total_students?: number
+          total_versions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_distribution_logs_parent_test_id_fkey"
+            columns: ["parent_test_id"]
+            isOneToOne: false
+            referencedRelation: "generated_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       test_exports: {
         Row: {
           export_type: string
@@ -1291,6 +1443,41 @@ export type Database = {
         }
         Relationships: []
       }
+      version_security_logs: {
+        Row: {
+          detected_at: string | null
+          event_data: Json | null
+          event_type: string
+          id: string
+          severity: string | null
+          test_version_id: string | null
+        }
+        Insert: {
+          detected_at?: string | null
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          severity?: string | null
+          test_version_id?: string | null
+        }
+        Update: {
+          detected_at?: string | null
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          severity?: string | null
+          test_version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "version_security_logs_test_version_id_fkey"
+            columns: ["test_version_id"]
+            isOneToOne: false
+            referencedRelation: "generated_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       analytics_approval_stats: {
@@ -1350,6 +1537,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_available_test_versions: {
+        Args: { p_parent_test_id: string }
+        Returns: {
+          assignment_count: number
+          version_id: string
+          version_number: number
+        }[]
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -1381,6 +1576,14 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      validate_version_balance: {
+        Args: { p_parent_test_id: string }
+        Returns: {
+          is_balanced: boolean
+          max_diff: number
+          warning_message: string
+        }[]
       }
     }
     Enums: {
