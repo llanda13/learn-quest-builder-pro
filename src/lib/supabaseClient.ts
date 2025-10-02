@@ -188,10 +188,8 @@ export async function saveGeneratedTest(test: {
     title: test.title || 'Generated Test',
     subject: 'General',
     instructions: 'Read each question carefully and select the best answer.',
-    num_versions: test.version_count || 1,
-    versions: test.versions || [],
-    answer_keys: test.answer_key ? [test.answer_key] : [],
-    created_by: user.id
+    items: test.items || test.versions || [],
+    answer_key: test.answer_key || {}
   };
 
   const { data, error } = await supabase

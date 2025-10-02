@@ -171,14 +171,12 @@ export const Tests = {
     const { data, error } = await supabase
       .from('generated_tests')
       .insert({ 
-        created_by: user?.id, 
         tos_id, 
         title,
         subject: params.subject || 'General',
         instructions: params.instructions || '',
-        num_versions: params.num_versions || 1,
-        versions: params.versions || [],
-        answer_keys: params.answer_keys || []
+        items: params.items || params.versions || [],
+        answer_key: params.answer_key || params.answer_keys || {}
       })
       .select()
       .single();

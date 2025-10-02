@@ -289,14 +289,11 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
           title: `${tosData.description} - ${tosData.examPeriod} Exam`,
           subject: tosData.course || 'General',
           instructions: `${tosData.description} - ${tosData.examPeriod} Exam`,
-          versions: JSON.stringify([questions]) as any,
-          answer_keys: JSON.stringify([]) as any,
-          num_versions: 1,
+          items: JSON.stringify(questions) as any,
           answer_key: JSON.stringify(questions.reduce((acc, q) => {
             acc[q.id] = q.correctAnswer || q.question
             return acc
           }, {} as Record<number, any>)) as any,
-          total_points: questions.reduce((sum, q) => sum + q.points, 0),
           created_by: 'teacher'
         })
     } catch (error) {

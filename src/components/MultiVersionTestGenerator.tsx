@@ -117,9 +117,8 @@ export default function MultiVersionTestGenerator({ onBack }: MultiVersionTestGe
         .insert({
           title: `Test Version ${version.version}`,
           subject: 'Generated Test',
-          num_versions: 1,
-          versions: version.questions as unknown as Json,
-          answer_keys: version.answerKey as unknown as Json,
+          items: version.questions as unknown as Json,
+          answer_key: version.answerKey as unknown as Json,
           instructions: `Test Version ${version.version}`
         });
 

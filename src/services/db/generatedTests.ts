@@ -12,9 +12,8 @@ export interface GeneratedTest {
   tos_id?: string;
   time_limit?: number;
   points_per_question?: number;
-  num_versions: number;
-  versions: any[];
-  answer_keys: any[];
+  items: any;
+  answer_key: any;
   shuffle_questions?: boolean;
   shuffle_choices?: boolean;
   version_label?: string;
@@ -27,8 +26,22 @@ export const GeneratedTests = {
   async create(payload: Omit<GeneratedTest, 'id' | 'created_at'>) {
     const { data: { user } } = await supabase.auth.getUser();
     const testData = {
-      ...payload,
-      created_by: user?.id
+      title: payload.title,
+      subject: payload.subject,
+      course: payload.course,
+      year_section: payload.year_section,
+      exam_period: payload.exam_period,
+      school_year: payload.school_year,
+      instructions: payload.instructions,
+      tos_id: payload.tos_id,
+      time_limit: payload.time_limit,
+      points_per_question: payload.points_per_question,
+      items: payload.items,
+      answer_key: payload.answer_key,
+      shuffle_questions: payload.shuffle_questions,
+      shuffle_choices: payload.shuffle_choices,
+      version_label: payload.version_label,
+      version_number: payload.version_number
     };
     
     const { data, error } = await supabase
@@ -44,8 +57,22 @@ export const GeneratedTests = {
   async createVersion(payload: Omit<GeneratedTest, 'id' | 'created_at'>) {
     const { data: { user } } = await supabase.auth.getUser();
     const testData = {
-      ...payload,
-      created_by: user?.id
+      title: payload.title,
+      subject: payload.subject,
+      course: payload.course,
+      year_section: payload.year_section,
+      exam_period: payload.exam_period,
+      school_year: payload.school_year,
+      instructions: payload.instructions,
+      tos_id: payload.tos_id,
+      time_limit: payload.time_limit,
+      points_per_question: payload.points_per_question,
+      items: payload.items,
+      answer_key: payload.answer_key,
+      shuffle_questions: payload.shuffle_questions,
+      shuffle_choices: payload.shuffle_choices,
+      version_label: payload.version_label,
+      version_number: payload.version_number
     };
     
     const { data, error } = await supabase
@@ -61,8 +88,22 @@ export const GeneratedTests = {
   async createMultipleVersions(configs: Omit<GeneratedTest, 'id' | 'created_at'>[]) {
     const { data: { user } } = await supabase.auth.getUser();
     const testDataArray = configs.map(config => ({
-      ...config,
-      created_by: user?.id
+      title: config.title,
+      subject: config.subject,
+      course: config.course,
+      year_section: config.year_section,
+      exam_period: config.exam_period,
+      school_year: config.school_year,
+      instructions: config.instructions,
+      tos_id: config.tos_id,
+      time_limit: config.time_limit,
+      points_per_question: config.points_per_question,
+      items: config.items,
+      answer_key: config.answer_key,
+      shuffle_questions: config.shuffle_questions,
+      shuffle_choices: config.shuffle_choices,
+      version_label: config.version_label,
+      version_number: config.version_number
     }));
     
     const { data, error } = await supabase
