@@ -44,6 +44,44 @@ export type Database = {
         }
         Relationships: []
       }
+      assembly_versions: {
+        Row: {
+          assembly_id: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          question_order: string[]
+          shuffle_seed: string | null
+          version_label: string
+        }
+        Insert: {
+          assembly_id: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          question_order: string[]
+          shuffle_seed?: string | null
+          version_label: string
+        }
+        Update: {
+          assembly_id?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          question_order?: string[]
+          shuffle_seed?: string | null
+          version_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assembly_versions_assembly_id_fkey"
+            columns: ["assembly_id"]
+            isOneToOne: false
+            referencedRelation: "test_assemblies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classification_validations: {
         Row: {
           created_at: string | null
@@ -1212,6 +1250,47 @@ export type Database = {
           metric_value?: number
         }
         Relationships: []
+      }
+      test_assemblies: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          params: Json | null
+          status: string | null
+          title: string
+          tos_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          params?: Json | null
+          status?: string | null
+          title: string
+          tos_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          params?: Json | null
+          status?: string | null
+          title?: string
+          tos_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_assemblies_tos_id_fkey"
+            columns: ["tos_id"]
+            isOneToOne: false
+            referencedRelation: "tos_entries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       test_assembly_constraints: {
         Row: {
