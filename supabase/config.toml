@@ -17,3 +17,6 @@ verify_jwt = true
 
 [functions.enhanced-classify]
 verify_jwt = false
+
+[functions.ml-model-retraining]
+verify_jwt = false
