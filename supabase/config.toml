@@ -14,3 +14,6 @@ verify_jwt = true
 
 [functions.validation-workflow]
 verify_jwt = true
+
+[functions.enhanced-classify]
+verify_jwt = false
