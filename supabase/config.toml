@@ -8,3 +8,9 @@ verify_jwt = true
 
 [functions.rubric-scores]
 verify_jwt = true
+
+[functions.semantic-similarity]
+verify_jwt = true
+
+[functions.validation-workflow]
+verify_jwt = true
