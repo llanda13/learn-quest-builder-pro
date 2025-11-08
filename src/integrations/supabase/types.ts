@@ -44,6 +44,62 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_generation_logs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          generated_at: string | null
+          generated_by: string | null
+          generation_type: string
+          id: string
+          metadata: Json | null
+          model_used: string | null
+          prompt_used: string | null
+          question_id: string | null
+          rejection_reason: string | null
+          semantic_similarity_score: number | null
+          tos_id: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          generated_at?: string | null
+          generated_by?: string | null
+          generation_type: string
+          id?: string
+          metadata?: Json | null
+          model_used?: string | null
+          prompt_used?: string | null
+          question_id?: string | null
+          rejection_reason?: string | null
+          semantic_similarity_score?: number | null
+          tos_id?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          generated_at?: string | null
+          generated_by?: string | null
+          generation_type?: string
+          id?: string
+          metadata?: Json | null
+          model_used?: string | null
+          prompt_used?: string | null
+          question_id?: string | null
+          rejection_reason?: string | null
+          semantic_similarity_score?: number | null
+          tos_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_generation_logs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assembly_versions: {
         Row: {
           assembly_id: string
@@ -84,8 +140,10 @@ export type Database = {
       }
       classification_validations: {
         Row: {
+          cognitive_level: string | null
           created_at: string | null
           id: string
+          knowledge_dimension: string | null
           notes: string | null
           original_classification: Json
           question_id: string | null
@@ -95,8 +153,10 @@ export type Database = {
           validator_id: string | null
         }
         Insert: {
+          cognitive_level?: string | null
           created_at?: string | null
           id?: string
+          knowledge_dimension?: string | null
           notes?: string | null
           original_classification: Json
           question_id?: string | null
@@ -106,8 +166,10 @@ export type Database = {
           validator_id?: string | null
         }
         Update: {
+          cognitive_level?: string | null
           created_at?: string | null
           id?: string
+          knowledge_dimension?: string | null
           notes?: string | null
           original_classification?: Json
           question_id?: string | null
@@ -911,11 +973,13 @@ export type Database = {
           bloom_level: string
           choices: Json | null
           classification_confidence: number | null
+          cognitive_level: string | null
           correct_answer: string | null
           created_at: string | null
           created_by: string
           deleted: boolean | null
           difficulty: string
+          grade_level: string | null
           id: string
           knowledge_dimension: string | null
           metadata: Json | null
@@ -925,7 +989,12 @@ export type Database = {
           question_text: string
           question_type: string
           readability_score: number | null
+          search_vector: unknown | null
           semantic_vector: string | null
+          status: string | null
+          subject: string | null
+          tags: string[] | null
+          term: string | null
           topic: string
           tos_id: string | null
           updated_at: string | null
@@ -945,11 +1014,13 @@ export type Database = {
           bloom_level: string
           choices?: Json | null
           classification_confidence?: number | null
+          cognitive_level?: string | null
           correct_answer?: string | null
           created_at?: string | null
           created_by?: string
           deleted?: boolean | null
           difficulty: string
+          grade_level?: string | null
           id?: string
           knowledge_dimension?: string | null
           metadata?: Json | null
@@ -959,7 +1030,12 @@ export type Database = {
           question_text: string
           question_type: string
           readability_score?: number | null
+          search_vector?: unknown | null
           semantic_vector?: string | null
+          status?: string | null
+          subject?: string | null
+          tags?: string[] | null
+          term?: string | null
           topic: string
           tos_id?: string | null
           updated_at?: string | null
@@ -979,11 +1055,13 @@ export type Database = {
           bloom_level?: string
           choices?: Json | null
           classification_confidence?: number | null
+          cognitive_level?: string | null
           correct_answer?: string | null
           created_at?: string | null
           created_by?: string
           deleted?: boolean | null
           difficulty?: string
+          grade_level?: string | null
           id?: string
           knowledge_dimension?: string | null
           metadata?: Json | null
@@ -993,7 +1071,12 @@ export type Database = {
           question_text?: string
           question_type?: string
           readability_score?: number | null
+          search_vector?: unknown | null
           semantic_vector?: string | null
+          status?: string | null
+          subject?: string | null
+          tags?: string[] | null
+          term?: string | null
           topic?: string
           tos_id?: string | null
           updated_at?: string | null
@@ -1812,6 +1895,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       validation_tests: {
         Row: {
           created_at: string
@@ -1950,6 +2057,19 @@ export type Database = {
           total_pairs: number
         }[]
       }
+      check_question_similarity: {
+        Args: {
+          p_bloom_level: string
+          p_question_text: string
+          p_threshold?: number
+          p_topic: string
+        }
+        Returns: {
+          question_text: string
+          similar_question_id: string
+          similarity_score: number
+        }[]
+      }
       cleanup_old_presence: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -1986,6 +2106,13 @@ export type Database = {
           total_validations: number
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       increment_usage_count: {
         Args: { question_id: string }
         Returns: undefined
@@ -1993,6 +2120,19 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      log_classification_metric: {
+        Args: {
+          p_cognitive_level: string
+          p_confidence: number
+          p_question_id: string
+          p_response_time_ms: number
+        }
+        Returns: undefined
+      }
+      mark_question_used: {
+        Args: { p_question_id: string; p_test_id: string }
+        Returns: undefined
       }
       validate_version_balance: {
         Args: { p_parent_test_id: string }
@@ -2004,6 +2144,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "teacher" | "validator" | "student"
       bloom_taxonomy:
         | "remember"
         | "understand"
@@ -2141,6 +2282,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "teacher", "validator", "student"],
       bloom_taxonomy: [
         "remember",
         "understand",
