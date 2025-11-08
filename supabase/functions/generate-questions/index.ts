@@ -13,6 +13,10 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  let generationSuccess = true;
+  let errorType = '';
+
   try {
     const { tos_id, request } = await req.json();
     
@@ -212,6 +216,43 @@ Return a JSON object with an "items" array containing questions in this exact fo
 
     console.log(`Successfully inserted ${insertedQuestions?.length || 0} questions`);
 
+    // Record metrics
+    const duration = Date.now() - startTime;
+    const avgQuality = validQuestions.reduce((sum: number, q: any) => sum + (q.quality_score || 0.8), 0) / validQuestions.length;
+
+    // Record metrics (fire and forget)
+    supabase.from('performance_benchmarks').insert({
+      operation_name: 'generate_questions',
+      min_response_time: duration,
+      average_response_time: duration,
+      max_response_time: duration,
+      error_rate: 0,
+      throughput: validQuestions.length,
+      measurement_period_minutes: 1
+    });
+
+    supabase.from('quality_metrics').insert({
+      entity_type: 'question_generation',
+      characteristic: 'Functional Completeness',
+      metric_name: 'generation_success_rate',
+      value: (insertedQuestions?.length || 0) / count,
+      unit: 'ratio',
+      automated: true
+    });
+
+    supabase.from('system_metrics').insert({
+      metric_category: 'performance',
+      metric_name: 'question_generation_time',
+      metric_value: duration,
+      metric_unit: 'ms',
+      dimensions: {
+        count: validQuestions.length,
+        avg_quality: avgQuality,
+        bloom_level,
+        difficulty
+      }
+    });
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -223,8 +264,44 @@ Return a JSON object with an "items" array containing questions in this exact fo
     );
 
   } catch (error) {
+    generationSuccess = false;
+    errorType = error instanceof Error ? error.name : 'UnknownError';
     console.error('Unexpected error:', error);
+    
+    const duration = Date.now() - startTime;
     const message = error instanceof Error ? error.message : 'Unknown error';
+
+    // Record error metrics
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+
+      await supabase.from('performance_benchmarks').insert({
+        operation_name: 'generate_questions',
+        min_response_time: duration,
+        average_response_time: duration,
+        max_response_time: duration,
+        error_rate: 1,
+        throughput: 0,
+        measurement_period_minutes: 1
+      });
+
+      await supabase.from('system_metrics').insert({
+        metric_category: 'reliability',
+        metric_name: 'error_occurrence',
+        metric_value: 1,
+        dimensions: {
+          error_type: errorType,
+          error_message: message,
+          operation: 'generate_questions'
+        }
+      });
+    } catch (metricsError) {
+      console.error('Failed to record error metrics:', metricsError);
+    }
+
     return new Response(
       JSON.stringify({ error: 'An unexpected error occurred', details: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
