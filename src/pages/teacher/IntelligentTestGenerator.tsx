@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,9 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Wand2, Loader2 } from 'lucide-react';
+import { Wand2, Loader2, Eye, CheckCircle, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { IntelligentQuestionSelector } from '@/services/ai/intelligentSelector';
+import { autoGenerator } from '@/services/ai/autoGenerator';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 interface TOSRequirement {
   topic: string;
@@ -19,12 +22,73 @@ interface TOSRequirement {
 
 export default function IntelligentTestGenerator() {
   const [testName, setTestName] = useState('');
+  const [selectedTOS, setSelectedTOS] = useState<string>('');
+  const [tosList, setTosList] = useState<any[]>([]);
   const [requirements, setRequirements] = useState<TOSRequirement[]>([
     { topic: '', bloomLevel: 'remember', difficulty: 'easy', count: 5 }
   ]);
   const [generating, setGenerating] = useState(false);
+  const [preview, setPreview] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchTOSList();
+  }, []);
+
+  const fetchTOSList = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tos_entries')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTosList(data || []);
+    } catch (error) {
+      console.error('Error fetching TOS:', error);
+    }
+  };
+
+  const loadTOSRequirements = async (tosId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('learning_competencies')
+        .select('*')
+        .eq('tos_id', tosId);
+
+      if (error) throw error;
+
+      const tosRequirements: TOSRequirement[] = [];
+      data?.forEach((comp: any) => {
+        ['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating'].forEach(level => {
+          const count = comp[`${level}_items`] || 0;
+          if (count > 0) {
+            tosRequirements.push({
+              topic: comp.topic_name,
+              bloomLevel: level,
+              difficulty: 'medium',
+              count: count
+            });
+          }
+        });
+      });
+
+      setRequirements(tosRequirements);
+      toast({
+        title: 'TOS Loaded',
+        description: `Loaded ${tosRequirements.length} requirements from TOS`,
+      });
+    } catch (error) {
+      console.error('Error loading TOS:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load TOS requirements',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const addRequirement = () => {
     setRequirements([...requirements, { topic: '', bloomLevel: 'remember', difficulty: 'easy', count: 5 }]);
@@ -40,7 +104,7 @@ export default function IntelligentTestGenerator() {
     setRequirements(requirements.filter((_, i) => i !== index));
   };
 
-  const handleGenerate = async () => {
+  const handleGeneratePreview = async () => {
     if (!testName.trim()) {
       toast({ title: 'Error', description: 'Please enter a test name', variant: 'destructive' });
       return;
@@ -66,8 +130,55 @@ export default function IntelligentTestGenerator() {
       
       const result = await selector.selectQuestions(tosRequirements, user.id);
 
-      // Create test record with proper structure - convert questions to plain objects
-      const questionItems = result.selectedQuestions.map(q => ({
+      // Generate missing questions using AI
+      if (result.missingRequirements.length > 0) {
+        const generationRequests = result.missingRequirements.map(req => ({
+          requirement: req,
+          teacherId: user.id,
+          tosId: selectedTOS || ''
+        }));
+
+        const generationResults = await autoGenerator.generateMissingQuestions(generationRequests);
+        
+        toast({
+          title: 'AI Generation',
+          description: `Generated ${generationResults.filter(r => r.success).length} new questions. Pending admin approval.`,
+        });
+      }
+
+      setPreview({
+        selectedQuestions: result.selectedQuestions,
+        missingRequirements: result.missingRequirements,
+        totalQuestions: result.selectedQuestions.length,
+        aiGenerated: result.missingRequirements.reduce((sum, r) => sum + r.count, 0)
+      });
+      setShowPreview(true);
+
+      toast({
+        title: 'Preview Generated',
+        description: `Found ${result.selectedQuestions.length} questions`,
+      });
+    } catch (error) {
+      console.error('Error generating preview:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate preview',
+        variant: 'destructive',
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSaveFinalTest = async () => {
+    if (!preview) return;
+
+    setGenerating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const questionItems = preview.selectedQuestions.map((q: any) => ({
         id: q.id,
         question_text: q.question_text,
         question_type: q.question_type,
@@ -83,6 +194,7 @@ export default function IntelligentTestGenerator() {
         .insert([{
           title: testName,
           created_by: user.id,
+          tos_id: selectedTOS || null,
           items: questionItems as any,
           answer_key: questionItems.map((q, i) => ({
             number: i + 1,
@@ -96,21 +208,128 @@ export default function IntelligentTestGenerator() {
 
       toast({
         title: 'Success',
-        description: `Generated test with ${result.selectedQuestions.length} questions`,
+        description: `Test saved with ${questionItems.length} questions`,
       });
 
       navigate('/teacher/my-tests');
     } catch (error) {
-      console.error('Error generating test:', error);
+      console.error('Error saving test:', error);
       toast({
         title: 'Error',
-        description: 'Failed to generate test',
+        description: 'Failed to save test',
         variant: 'destructive',
       });
     } finally {
       setGenerating(false);
     }
   };
+
+  if (showPreview && preview) {
+    return (
+      <div className="container mx-auto py-8 px-4 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-6 w-6" />
+              Test Preview: {testName}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="p-4">
+                <div className="text-center">
+                  <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold">{preview.totalQuestions}</div>
+                  <div className="text-sm text-muted-foreground">Questions Selected</div>
+                </div>
+              </Card>
+              <Card className="p-4">
+                <div className="text-center">
+                  <Wand2 className="h-8 w-8 text-purple-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold">{preview.aiGenerated}</div>
+                  <div className="text-sm text-muted-foreground">AI Generated (Pending)</div>
+                </div>
+              </Card>
+              <Card className="p-4">
+                <div className="text-center">
+                  <AlertCircle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold">{preview.missingRequirements.length}</div>
+                  <div className="text-sm text-muted-foreground">Missing Requirements</div>
+                </div>
+              </Card>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">Selected Questions</h3>
+              {preview.selectedQuestions.map((q: any, idx: number) => (
+                <Card key={q.id} className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="secondary">#{idx + 1}</Badge>
+                        <Badge variant="outline">{q.topic}</Badge>
+                        <Badge variant="outline">{q.bloom_level}</Badge>
+                        <Badge variant="outline">{q.difficulty}</Badge>
+                      </div>
+                      <p className="text-sm">{q.question_text}</p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            {preview.missingRequirements.length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-yellow-500" />
+                    Missing Requirements (AI Generated - Pending Approval)
+                  </h3>
+                  {preview.missingRequirements.map((req: any, idx: number) => (
+                    <div key={idx} className="text-sm text-muted-foreground">
+                      • {req.count} {req.bloom_level} questions on {req.topic} ({req.difficulty})
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <Separator />
+
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowPreview(false)}
+                className="flex-1"
+              >
+                Back to Edit
+              </Button>
+              <Button
+                onClick={handleSaveFinalTest}
+                disabled={generating || preview.totalQuestions === 0}
+                className="flex-1"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Save Final Test
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -130,6 +349,27 @@ export default function IntelligentTestGenerator() {
               onChange={(e) => setTestName(e.target.value)}
               placeholder="e.g., Midterm Exam - Chapter 5"
             />
+          </div>
+
+          <div>
+            <Label htmlFor="tosSelect">Load from Table of Specifications (Optional)</Label>
+            <div className="flex gap-2">
+              <Select value={selectedTOS} onValueChange={(value) => {
+                setSelectedTOS(value);
+                loadTOSRequirements(value);
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a TOS..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {tosList.map((tos) => (
+                    <SelectItem key={tos.id} value={tos.id}>
+                      {tos.title || `TOS - ${new Date(tos.created_at).toLocaleDateString()}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -212,7 +452,7 @@ export default function IntelligentTestGenerator() {
           </div>
 
           <Button
-            onClick={handleGenerate}
+            onClick={handleGeneratePreview}
             disabled={generating}
             className="w-full"
             size="lg"
@@ -220,12 +460,12 @@ export default function IntelligentTestGenerator() {
             {generating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
+                Generating Preview...
               </>
             ) : (
               <>
-                <Wand2 className="mr-2 h-4 w-4" />
-                Generate Test
+                <Eye className="mr-2 h-4 w-4" />
+                Generate Preview
               </>
             )}
           </Button>
