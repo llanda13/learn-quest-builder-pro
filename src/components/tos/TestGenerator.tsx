@@ -27,33 +27,33 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
   const [steps, setSteps] = useState<GenerationStep[]>([
     {
       id: 'analyze',
-      title: 'Analyzing TOS Matrix',
+      title: 'Analyzing TOS Criteria',
       status: 'pending',
-      description: 'Processing topic distribution and Bloom levels'
+      description: 'Processing topic distribution and Bloom level requirements'
     },
     {
-      id: 'textbank',
-      title: 'Querying Text Bank',
+      id: 'query-bank',
+      title: 'Querying Question Bank',
       status: 'pending',
-      description: 'Searching for existing questions in database'
+      description: 'Searching for approved questions matching criteria'
+    },
+    {
+      id: 'semantic-filter',
+      title: 'Semantic Similarity Filtering',
+      status: 'pending',
+      description: 'Selecting non-redundant questions (similarity < 0.85)'
     },
     {
       id: 'ai-generate',
       title: 'AI Question Generation',
       status: 'pending',
-      description: 'Generating missing questions using AI engine'
+      description: 'Generating new questions for missing criteria'
     },
     {
-      id: 'quality-check',
-      title: 'Quality Assurance',
+      id: 'answer-key',
+      title: 'Answer Key Generation',
       status: 'pending',
-      description: 'Validating question structure and Bloom alignment'
-    },
-    {
-      id: 'finalize',
-      title: 'Finalizing Test',
-      status: 'pending',
-      description: 'Arranging questions and creating answer key'
+      description: 'Creating automatic answer key for all questions'
     }
   ])
 
@@ -192,72 +192,58 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
 
   const generateQuestionsFromDatabase = async (): Promise<TestQuestion[]> => {
     try {
-      const { supabase } = await import('@/integrations/supabase/client')
-      const questions: TestQuestion[] = []
-      let questionId = 1
-
-      // For each topic and bloom level, try to fetch questions from database
-      for (const [topicName, topicData] of Object.entries(tosData.distribution)) {
-        for (const [bloomLevel, itemNumbers] of Object.entries(topicData)) {
-          if (bloomLevel === 'hours' || bloomLevel === 'total' || !Array.isArray(itemNumbers)) continue
-
-          // Try to fetch existing questions
-          const { data: existingQuestions } = await supabase
-            .from('questions')
-            .select('*')
-            .eq('topic', topicName)
-            .eq('bloom_level', bloomLevel.charAt(0).toUpperCase() + bloomLevel.slice(1))
-            .limit(itemNumbers.length)
-
-          let questionsAdded = 0
+      const { generateTestFromTOS } = await import('@/services/ai/testGenerationService')
+      
+      // Build TOS criteria from distribution
+      const tosCriteria: any[] = []
+      Object.entries(tosData.distribution).forEach(([topicName, topicData]) => {
+        Object.entries(topicData).forEach(([bloomLevel, itemNumbers]) => {
+          if (bloomLevel === 'hours' || bloomLevel === 'total' || !Array.isArray(itemNumbers)) return
           
-          // Use existing questions if available
-          if (existingQuestions && existingQuestions.length > 0) {
-            for (const dbQuestion of existingQuestions.slice(0, itemNumbers.length)) {
-              const difficulty = getDifficultyFromBloom(bloomLevel)
-              
-              questions.push({
-                id: itemNumbers[questionsAdded] || questionId++,
-                topicName,
-                bloomLevel: bloomLevel.charAt(0).toUpperCase() + bloomLevel.slice(1),
-                difficulty,
-                type: dbQuestion.question_type === 'mcq' ? 'multiple-choice' : 'essay',
-                question: dbQuestion.question_text,
-                options: dbQuestion.choices ? Object.values(dbQuestion.choices) : undefined,
-                correctAnswer: dbQuestion.question_type === 'mcq' ? 
-                  (dbQuestion.choices ? Object.keys(dbQuestion.choices).indexOf(dbQuestion.correct_answer) : 0) : 
-                  undefined,
-                points: difficulty === 'Easy' ? 1 : difficulty === 'Average' ? 2 : 3
-              })
-              questionsAdded++
-            }
-          }
+          const difficulty = getDifficultyFromBloom(bloomLevel)
+          tosCriteria.push({
+            topic: topicName,
+            bloom_level: bloomLevel.charAt(0).toUpperCase() + bloomLevel.slice(1),
+            knowledge_dimension: 'conceptual',
+            difficulty: difficulty.toLowerCase(),
+            count: itemNumbers.length
+          })
+        })
+      })
 
-          // Generate remaining questions if needed
-          const remainingNeeded = itemNumbers.length - questionsAdded
-          for (let i = 0; i < remainingNeeded; i++) {
-            const difficulty = getDifficultyFromBloom(bloomLevel)
-            const verb = bloomVerbs[bloomLevel as keyof typeof bloomVerbs]?.[Math.floor(Math.random() * bloomVerbs[bloomLevel as keyof typeof bloomVerbs].length)] || 'Explain'
-            
-            questions.push({
-              id: itemNumbers[questionsAdded + i] || questionId++,
-              topicName,
-              bloomLevel: bloomLevel.charAt(0).toUpperCase() + bloomLevel.slice(1),
-              difficulty,
-              type: ['remembering', 'understanding', 'applying'].includes(bloomLevel) ? 'multiple-choice' : 'essay',
-              question: generateQuestionText(verb, topicName, bloomLevel),
-              options: ['remembering', 'understanding', 'applying'].includes(bloomLevel) ? 
-                generateOptions(topicName, bloomLevel) : undefined,
-              correctAnswer: ['remembering', 'understanding', 'applying'].includes(bloomLevel) ? 0 : undefined,
-              points: difficulty === 'Easy' ? 1 : difficulty === 'Average' ? 2 : 3
-            })
-          }
+      // Generate test using intelligent selection
+      const generatedTest = await generateTestFromTOS(
+        tosCriteria,
+        `${tosData.description} - ${tosData.examPeriod}`,
+        {
+          subject: tosData.course,
+          exam_period: tosData.examPeriod,
+          school_year: tosData.schoolYear,
+          year_section: tosData.yearSection,
+          prepared_by: tosData.preparedBy,
+          noted_by: tosData.notedBy,
+          tos_id: null
         }
-      }
+      )
+
+      // Convert to TestQuestion format
+      const questions: TestQuestion[] = generatedTest.questions.map((q: any) => ({
+        id: q.question_number,
+        topicName: q.topic,
+        bloomLevel: q.bloom_level,
+        difficulty: getDifficultyFromBloom(q.bloom_level.toLowerCase()),
+        type: q.question_type === 'mcq' ? 'multiple-choice' : 'essay',
+        question: q.question_text,
+        options: q.choices ? Object.values(q.choices) : undefined,
+        correctAnswer: q.question_type === 'mcq' ? 
+          (q.choices ? Object.keys(q.choices).indexOf(q.correct_answer) : 0) : 
+          q.correct_answer,
+        points: q.difficulty === 'easy' ? 1 : q.difficulty === 'average' ? 2 : 3
+      }))
 
       return questions.sort((a, b) => a.id - b.id)
     } catch (error) {
-      console.error('Error generating questions from database:', error)
+      console.error('Error generating test from TOS:', error)
       return generateMockQuestions()
     }
   }
@@ -277,28 +263,8 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
       setProgress(((i + 1) / steps.length) * 100)
     }
 
-    // Generate questions using database + AI fallback
+    // Generate questions using intelligent AI-assisted selection
     const questions = await generateQuestionsFromDatabase()
-    
-    // Save generated test to database
-    try {
-      const { supabase } = await import('@/integrations/supabase/client')
-      await supabase
-        .from('generated_tests')
-        .insert({
-          title: `${tosData.description} - ${tosData.examPeriod} Exam`,
-          subject: tosData.course || 'General',
-          instructions: `${tosData.description} - ${tosData.examPeriod} Exam`,
-          items: JSON.stringify(questions) as any,
-          answer_key: JSON.stringify(questions.reduce((acc, q) => {
-            acc[q.id] = q.correctAnswer || q.question
-            return acc
-          }, {} as Record<number, any>)) as any,
-          created_by: 'teacher'
-        })
-    } catch (error) {
-      console.error('Error saving generated test:', error)
-    }
     
     setTimeout(() => {
       setIsGenerating(false)
@@ -375,15 +341,15 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
               ))}
             </div>
 
-            {/* Note about Supabase */}
+            {/* System Info */}
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-start gap-2">
                 <Database className="w-5 h-5 text-blue-500 mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-blue-900">Connect to Supabase for Full Functionality</h4>
+                  <h4 className="font-medium text-blue-900">Intelligent Test Generation System</h4>
                   <p className="text-sm text-blue-700 mt-1">
-                    For real AI generation and text bank integration, connect your project to Supabase. 
-                    This demo shows mock question generation.
+                    Using semantic similarity filtering (≥0.85 threshold) to ensure non-redundant question selection. 
+                    AI-generated questions are marked as pending and require Admin approval before becoming part of the Question Bank.
                   </p>
                 </div>
               </div>
