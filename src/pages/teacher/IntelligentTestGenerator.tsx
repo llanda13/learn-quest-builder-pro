@@ -4,14 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Wand2, Loader2, Eye, CheckCircle, AlertCircle } from 'lucide-react';
+import { Wand2, Loader2, Eye, CheckCircle, AlertCircle, Download, FileText, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { IntelligentQuestionSelector } from '@/services/ai/intelligentSelector';
 import { autoGenerator } from '@/services/ai/autoGenerator';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { usePDFExport } from '@/hooks/usePDFExport';
 
 interface TOSRequirement {
   topic: string;
@@ -30,8 +32,11 @@ export default function IntelligentTestGenerator() {
   const [generating, setGenerating] = useState(false);
   const [preview, setPreview] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showAnswerKey, setShowAnswerKey] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { exportTestQuestions } = usePDFExport();
 
   useEffect(() => {
     fetchTOSList();
@@ -170,6 +175,40 @@ export default function IntelligentTestGenerator() {
     }
   };
 
+  const handleExportPDF = async () => {
+    if (!preview) return;
+
+    setExporting(true);
+    try {
+      const questions = preview.selectedQuestions.map((q: any) => ({
+        question: q.question_text,
+        type: q.question_type === 'mcq' ? 'multiple-choice' : 'essay',
+        options: q.choices ? Object.values(q.choices) : [],
+        correctAnswer: q.correct_answer
+      }));
+
+      const result = await exportTestQuestions(questions, testName, false);
+      
+      if (result) {
+        toast({
+          title: 'Success',
+          description: 'Test exported to PDF',
+        });
+      } else {
+        throw new Error('Export failed');
+      }
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to export test',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleSaveFinalTest = async () => {
     if (!preview) return;
 
@@ -262,18 +301,56 @@ export default function IntelligentTestGenerator() {
             <Separator />
 
             <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Selected Questions</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-lg">Selected Questions</h3>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="answer-key-toggle" className="text-sm">Show Answer Key</Label>
+                  <Switch
+                    id="answer-key-toggle"
+                    checked={showAnswerKey}
+                    onCheckedChange={setShowAnswerKey}
+                  />
+                </div>
+              </div>
+
               {preview.selectedQuestions.map((q: any, idx: number) => (
                 <Card key={q.id} className="p-4">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="secondary">#{idx + 1}</Badge>
                         <Badge variant="outline">{q.topic}</Badge>
                         <Badge variant="outline">{q.bloom_level}</Badge>
                         <Badge variant="outline">{q.difficulty}</Badge>
                       </div>
-                      <p className="text-sm">{q.question_text}</p>
+                      
+                      <p className="text-sm font-medium">{q.question_text}</p>
+                      
+                      {q.question_type === 'mcq' && q.choices && (
+                        <div className="ml-4 space-y-1">
+                          {Object.entries(q.choices as Record<string, string>).map(([key, value]) => (
+                            <div 
+                              key={key} 
+                              className={`text-sm ${
+                                showAnswerKey && key === q.correct_answer
+                                  ? 'text-green-600 dark:text-green-400 font-semibold bg-green-50 dark:bg-green-950/30 px-2 py-1 rounded'
+                                  : 'text-muted-foreground'
+                              }`}
+                            >
+                              {key}. {String(value)}
+                              {showAnswerKey && key === q.correct_answer && ' ✓'}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {showAnswerKey && q.question_type !== 'mcq' && (
+                        <div className="mt-2 p-3 bg-green-50 dark:bg-green-950/30 rounded border border-green-200 dark:border-green-800">
+                          <p className="text-sm text-green-800 dark:text-green-300">
+                            <strong>Answer:</strong> {q.correct_answer || 'See rubric for grading criteria'}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -299,18 +376,33 @@ export default function IntelligentTestGenerator() {
 
             <Separator />
 
-            <div className="flex gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Button
                 variant="outline"
                 onClick={() => setShowPreview(false)}
-                className="flex-1"
               >
                 Back to Edit
               </Button>
               <Button
+                variant="secondary"
+                onClick={handleExportPDF}
+                disabled={exporting || preview.totalQuestions === 0}
+              >
+                {exporting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export PDF
+                  </>
+                )}
+              </Button>
+              <Button
                 onClick={handleSaveFinalTest}
                 disabled={generating || preview.totalQuestions === 0}
-                className="flex-1"
               >
                 {generating ? (
                   <>
