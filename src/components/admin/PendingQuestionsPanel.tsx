@@ -3,23 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, XCircle, Brain, Loader2, Eye } from 'lucide-react';
+import { CheckCircle, XCircle, Brain, Loader2 } from 'lucide-react';
+import { approvalService, type PendingQuestion } from '@/services/admin/approvalService';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-interface PendingQuestion {
-  id: string;
-  question_text: string;
-  topic: string;
-  bloom_level: string;
-  difficulty: string;
-  question_type: string;
-  choices?: any;
-  correct_answer: string;
-  ai_confidence_score: number;
-  created_at: string;
-  metadata?: any;
-}
 
 export function PendingQuestionsPanel() {
   const [pendingQuestions, setPendingQuestions] = useState<PendingQuestion[]>([]);
@@ -27,24 +14,25 @@ export function PendingQuestionsPanel() {
   const [processing, setProcessing] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchPendingQuestions();
+    loadData();
+    
+    // Subscribe to realtime updates
+    const subscription = approvalService.subscribeToPendingQuestions(() => {
+      loadData();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const fetchPendingQuestions = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('created_by', 'ai')
-        .eq('status', 'pending')
-        .eq('approved', false)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setPendingQuestions((data || []) as any);
+      const questions = await approvalService.getPendingQuestions();
+      setPendingQuestions(questions);
     } catch (error) {
-      console.error('Error fetching pending questions:', error);
+      console.error('Error loading pending questions:', error);
       toast.error('Failed to load pending questions');
     } finally {
       setLoading(false);
@@ -55,21 +43,16 @@ export function PendingQuestionsPanel() {
     setProcessing(questionId);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const success = await approvalService.approveQuestion(questionId, user.id);
       
-      const { error } = await supabase
-        .from('questions')
-        .update({
-          approved: true,
-          status: 'approved',
-          approved_by: user?.id,
-          approval_timestamp: new Date().toISOString()
-        })
-        .eq('id', questionId);
-
-      if (error) throw error;
-
-      toast.success('Question approved successfully');
-      fetchPendingQuestions();
+      if (success) {
+        toast.success('Question approved successfully');
+        await loadData();
+      } else {
+        toast.error('Failed to approve question');
+      }
     } catch (error) {
       console.error('Error approving question:', error);
       toast.error('Failed to approve question');
@@ -81,18 +64,17 @@ export function PendingQuestionsPanel() {
   const handleReject = async (questionId: string) => {
     setProcessing(questionId);
     try {
-      const { error } = await supabase
-        .from('questions')
-        .update({
-          status: 'rejected',
-          deleted: true
-        })
-        .eq('id', questionId);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
-      if (error) throw error;
-
-      toast.success('Question rejected');
-      fetchPendingQuestions();
+      const success = await approvalService.rejectQuestion(questionId, user.id);
+      
+      if (success) {
+        toast.success('Question rejected');
+        await loadData();
+      } else {
+        toast.error('Failed to reject question');
+      }
     } catch (error) {
       console.error('Error rejecting question:', error);
       toast.error('Failed to reject question');
