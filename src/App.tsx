@@ -17,6 +17,8 @@ import TOSPage from "./pages/teacher/TOSPage";
 import IntelligentTestGenerator from "./pages/teacher/IntelligentTestGenerator";
 import MyTests from "./pages/teacher/MyTests";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AdminLayout } from "./components/layout/AdminLayout";
+import { TeacherLayout } from "./components/layout/TeacherLayout";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,14 +43,16 @@ const App = () => {
                 path="/admin/*" 
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <Routes>
-                      <Route index element={<Navigate to="/admin/dashboard" replace />} />
-                      <Route path="dashboard" element={<AdminDashboard />} />
-                      <Route path="question-bank" element={<QuestionBankManager />} />
-                      <Route path="approvals" element={<PendingApprovals />} />
-                      <Route path="bulk-import" element={<BulkImportPage />} />
-                      <Route path="users" element={<UserManagement />} />
-                    </Routes>
+                    <AdminLayout>
+                      <Routes>
+                        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                        <Route path="dashboard" element={<AdminDashboard />} />
+                        <Route path="question-bank" element={<QuestionBankManager />} />
+                        <Route path="approvals" element={<PendingApprovals />} />
+                        <Route path="bulk-import" element={<BulkImportPage />} />
+                        <Route path="users" element={<UserManagement />} />
+                      </Routes>
+                    </AdminLayout>
                   </ProtectedRoute>
                 } 
               />
@@ -58,13 +62,15 @@ const App = () => {
                 path="/teacher/*" 
                 element={
                   <ProtectedRoute requiredRole="teacher">
-                    <Routes>
-                      <Route index element={<Navigate to="/teacher/dashboard" replace />} />
-                      <Route path="dashboard" element={<TeacherDashboard />} />
-                      <Route path="tos" element={<TOSPage />} />
-                      <Route path="generate-test" element={<IntelligentTestGenerator />} />
-                      <Route path="my-tests" element={<MyTests />} />
-                    </Routes>
+                    <TeacherLayout>
+                      <Routes>
+                        <Route index element={<Navigate to="/teacher/dashboard" replace />} />
+                        <Route path="dashboard" element={<TeacherDashboard />} />
+                        <Route path="tos" element={<TOSPage />} />
+                        <Route path="generate-test" element={<IntelligentTestGenerator />} />
+                        <Route path="my-tests" element={<MyTests />} />
+                      </Routes>
+                    </TeacherLayout>
                   </ProtectedRoute>
                 } 
               />
