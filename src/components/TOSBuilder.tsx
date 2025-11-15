@@ -18,6 +18,7 @@ import { EdgeFunctions } from "@/services/edgeFunctions";
 import { useRealtime } from "@/hooks/useRealtime";
 import { usePresence } from "@/hooks/usePresence";
 import { buildTestConfigFromTOS } from "@/utils/testVersions";
+import { SufficiencyAnalysisPanel } from "@/components/analysis/SufficiencyAnalysisPanel";
 
 const topicSchema = z.object({
   topic: z.string().min(1, "Topic name is required"),
@@ -211,20 +212,16 @@ export const TOSBuilder = ({ onBack }: TOSBuilderProps) => {
   const analyzeSufficiency = async (matrix: any) => {
     setIsAnalyzing(true);
     try {
-      const analysis = await Analytics.getQuestionBankSufficiency(matrix.id);
+      const { analyzeTOSSufficiency } = await import('@/services/analysis/sufficiencyAnalysis');
+      const analysis = await analyzeTOSSufficiency(matrix);
       setSufficiencyAnalysis(analysis);
       
-      // Calculate if sufficient
-      const totalShortage = Object.values(analysis).reduce((total: number, topicData: any) => {
-        return total + Object.values(topicData as Record<string, any>).reduce((topicTotal: number, bloomData: any) => {
-          return topicTotal + (Number(bloomData.shortage) || 0);
-        }, 0);
-      }, 0);
-      
-      if (totalShortage > 0) {
-        toast.warning(`Question bank has ${totalShortage} missing questions across topics.`);
+      if (analysis.overallStatus === 'pass') {
+        toast.success("Question bank is sufficient for test generation!");
+      } else if (analysis.overallStatus === 'warning') {
+        toast.warning("Question bank has marginal coverage. Consider adding more questions.");
       } else {
-        toast.success("Question bank is sufficient for this TOS!");
+        toast.error("Insufficient questions in bank. Please add more approved questions.");
       }
     } catch (error) {
       console.error('Error analyzing TOS sufficiency:', error);
@@ -340,47 +337,7 @@ export const TOSBuilder = ({ onBack }: TOSBuilderProps) => {
         
         {/* Sufficiency Analysis */}
         {sufficiencyAnalysis && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5" />
-                Question Bank Analysis
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {Object.entries(sufficiencyAnalysis).map(([topic, bloomData]: [string, any]) => (
-                <div key={topic} className="mb-4">
-                  <h4 className="font-semibold mb-2">{topic}</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                    {Object.entries(bloomData).map(([bloom, data]: [string, any]) => (
-                      <div key={bloom} className="flex justify-between items-center p-2 border rounded">
-                        <span className="capitalize">{bloom}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-green-600">{data.available}</span>
-                          <span>/</span>
-                          <span className="text-blue-600">{data.needed}</span>
-                          {data.shortage > 0 && (
-                            <span className="text-red-600">(-{data.shortage})</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              
-              {Object.values(sufficiencyAnalysis).some((topicData: any) => 
-                Object.values(topicData).some((bloomData: any) => bloomData.shortage > 0)
-              ) && (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    Some topics have insufficient questions. AI will generate questions to fill gaps during test creation.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
+          <SufficiencyAnalysisPanel analysis={sufficiencyAnalysis} />
         )}
         
         {/* Generate Test Section */}
