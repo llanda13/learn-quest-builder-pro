@@ -95,9 +95,15 @@ export async function generateTestFromTOS(
     .from('generated_tests')
     .insert({
       title: testTitle,
+      subject: testMetadata?.subject || null,
+      course: testMetadata?.course || null,
+      year_section: testMetadata?.year_section || null,
+      exam_period: testMetadata?.exam_period || null,
+      school_year: testMetadata?.school_year || null,
       items: selectedQuestions,
       answer_key: answerKey,
-      ...testMetadata
+      tos_id: testMetadata?.tos_id || null,
+      points_per_question: testMetadata?.points_per_question || 1
     })
     .select()
     .single();
