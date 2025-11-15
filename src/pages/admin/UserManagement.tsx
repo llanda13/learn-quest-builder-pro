@@ -68,10 +68,10 @@ export default function UserManagement() {
       // Delete existing roles for this user
       await supabase.from('user_roles').delete().eq('user_id', userId);
 
-      // Insert new role - cast newRole to the proper enum type
+      // Insert new role - cast newRole to the proper enum type (only admin and teacher are valid)
       const { error } = await supabase
         .from('user_roles')
-        .insert([{ user_id: userId, role: newRole as 'admin' | 'teacher' | 'validator' | 'student' }]);
+        .insert([{ user_id: userId, role: newRole as 'admin' | 'teacher' }]);
 
       if (error) throw error;
 

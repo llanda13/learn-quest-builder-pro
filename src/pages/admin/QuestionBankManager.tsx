@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,8 +133,7 @@ export default function QuestionBankManager() {
   };
 
   return (
-    <AdminLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-100">Question Bank Manager</h1>
@@ -307,6 +305,5 @@ export default function QuestionBankManager() {
           )}
         </div>
       </div>
-    </AdminLayout>
   );
 }

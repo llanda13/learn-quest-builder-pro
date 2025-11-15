@@ -51,119 +51,119 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">System management and oversight</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+            <p className="text-muted-foreground">System management and oversight</p>
+          </div>
+          <Button onClick={() => navigate("/admin/settings")}>
+            <Settings className="h-4 w-4 mr-2" />
+            System Settings
+          </Button>
         </div>
-        <Button onClick={() => navigate("/admin/settings")}>
-          <Settings className="h-4 w-4 mr-2" />
-          System Settings
-        </Button>
+
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Questions</CardTitle>
+              <Database className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.totalQuestions || 0}</div>
+              <p className="text-xs text-muted-foreground">In question bank</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Teachers</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.totalTeachers || 0}</div>
+              <p className="text-xs text-muted-foreground">Active users</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
+              <AlertCircle className="h-4 w-4 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.pendingApprovals || 0}</div>
+              <p className="text-xs text-muted-foreground">Require review</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">AI Generations</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.aiGenerations || 0}</div>
+              <p className="text-xs text-muted-foreground">Total created</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Pending Questions Panel - High Priority */}
+        <PendingQuestionsPanel />
+
+        {/* Quick Actions */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/question-bank")}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Question Bank
+              </CardTitle>
+              <CardDescription>Manage master question repository</CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/approvals")}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5" />
+                Review Approvals
+              </CardTitle>
+              <CardDescription>Review pending AI-generated questions</CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/teachers")}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Manage Teachers
+              </CardTitle>
+              <CardDescription>View and manage teacher accounts</CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/analytics")}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                System Analytics
+              </CardTitle>
+              <CardDescription>View performance metrics</CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/ai-logs")}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                AI Generation Logs
+              </CardTitle>
+              <CardDescription>Monitor AI activity</CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
-
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Questions</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalQuestions || 0}</div>
-            <p className="text-xs text-muted-foreground">In question bank</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Teachers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalTeachers || 0}</div>
-            <p className="text-xs text-muted-foreground">Active users</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
-            <AlertCircle className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.pendingApprovals || 0}</div>
-            <p className="text-xs text-muted-foreground">Require review</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">AI Generations</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.aiGenerations || 0}</div>
-            <p className="text-xs text-muted-foreground">Total created</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Pending Questions Panel - High Priority */}
-      <PendingQuestionsPanel />
-
-      {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/question-bank")}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              Question Bank
-            </CardTitle>
-            <CardDescription>Manage master question repository</CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/approvals")}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5" />
-              Review Approvals
-            </CardTitle>
-            <CardDescription>Review pending AI-generated questions</CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/teachers")}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Manage Teachers
-            </CardTitle>
-            <CardDescription>View and manage teacher accounts</CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/analytics")}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              System Analytics
-            </CardTitle>
-            <CardDescription>View performance metrics</CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/ai-logs")}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              AI Generation Logs
-            </CardTitle>
-            <CardDescription>Monitor AI activity</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    </div>
   );
 }
