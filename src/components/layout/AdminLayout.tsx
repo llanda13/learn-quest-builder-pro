@@ -62,6 +62,18 @@ const adminMenuItems = [
     icon: BarChart3,
     description: "Performance metrics" 
   },
+  { 
+    title: "Quality Assurance", 
+    href: "/admin/quality", 
+    icon: CheckCircle,
+    description: "ISO 25010 metrics" 
+  },
+  { 
+    title: "Test Assembly", 
+    href: "/admin/test-assembly", 
+    icon: FileText,
+    description: "Advanced test builder" 
+  },
 ];
 
 const bottomMenuItems = [

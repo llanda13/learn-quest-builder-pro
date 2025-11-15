@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -9,7 +10,7 @@ import { TestQuestion } from "./GeneratedTest"
 
 interface TestGeneratorProps {
   tosData: TOSData
-  onTestGenerated: (questions: TestQuestion[]) => void
+  onTestGenerated: (testId: string) => void
   onCancel: () => void
 }
 
@@ -21,6 +22,7 @@ interface GenerationStep {
 }
 
 export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGeneratorProps) {
+  const navigate = useNavigate()
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState(0)
@@ -190,7 +192,7 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
     ))
   }
 
-  const generateQuestionsFromDatabase = async (): Promise<TestQuestion[]> => {
+  const generateQuestionsFromDatabase = async (): Promise<string> => {
     try {
       const { generateTestFromTOS } = await import('@/services/ai/testGenerationService')
       
@@ -220,31 +222,16 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
           exam_period: tosData.examPeriod,
           school_year: tosData.schoolYear,
           year_section: tosData.yearSection,
-          prepared_by: tosData.preparedBy,
-          noted_by: tosData.notedBy,
+          course: tosData.course,
           tos_id: null
         }
       )
 
-      // Convert to TestQuestion format
-      const questions: TestQuestion[] = generatedTest.questions.map((q: any) => ({
-        id: q.question_number,
-        topicName: q.topic,
-        bloomLevel: q.bloom_level,
-        difficulty: getDifficultyFromBloom(q.bloom_level.toLowerCase()),
-        type: q.question_type === 'mcq' ? 'multiple-choice' : 'essay',
-        question: q.question_text,
-        options: q.choices ? Object.values(q.choices) : undefined,
-        correctAnswer: q.question_type === 'mcq' ? 
-          (q.choices ? Object.keys(q.choices).indexOf(q.correct_answer) : 0) : 
-          q.correct_answer,
-        points: q.difficulty === 'easy' ? 1 : q.difficulty === 'average' ? 2 : 3
-      }))
-
-      return questions.sort((a, b) => a.id - b.id)
+      // Return the test ID for navigation
+      return generatedTest.id
     } catch (error) {
       console.error('Error generating test from TOS:', error)
-      return generateMockQuestions()
+      throw error
     }
   }
 
@@ -252,24 +239,31 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
     setIsGenerating(true)
     setProgress(0)
 
-    for (let i = 0; i < steps.length; i++) {
-      setCurrentStep(i)
-      updateStep(i, 'in-progress')
-      
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      updateStep(i, 'completed')
-      setProgress(((i + 1) / steps.length) * 100)
-    }
+    try {
+      for (let i = 0; i < steps.length; i++) {
+        setCurrentStep(i)
+        updateStep(i, 'in-progress')
+        
+        // Simulate processing time
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        
+        updateStep(i, 'completed')
+        setProgress(((i + 1) / steps.length) * 100)
+      }
 
-    // Generate questions using intelligent AI-assisted selection
-    const questions = await generateQuestionsFromDatabase()
-    
-    setTimeout(() => {
+      // Generate questions using intelligent AI-assisted selection
+      const testId = await generateQuestionsFromDatabase()
+      
+      setTimeout(() => {
+        setIsGenerating(false)
+        // Navigate to test preview page
+        navigate(`/teacher/test/${testId}`)
+      }, 500)
+    } catch (error) {
+      console.error('Test generation failed:', error)
       setIsGenerating(false)
-      onTestGenerated(questions)
-    }, 500)
+      updateStep(currentStep, 'error')
+    }
   }
 
   return (

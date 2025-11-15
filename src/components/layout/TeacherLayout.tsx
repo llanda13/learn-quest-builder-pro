@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
-  BookOpen
+  BookOpen,
+  Target
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,18 @@ const teacherMenuItems = [
     href: "/teacher/my-tests", 
     icon: BookOpen,
     description: "View generated tests" 
+  },
+  { 
+    title: "Export & Print", 
+    href: "/teacher/export", 
+    icon: FileText,
+    description: "Professional exports" 
+  },
+  { 
+    title: "Rubrics", 
+    href: "/teacher/rubrics", 
+    icon: Target,
+    description: "Scoring rubrics" 
   },
   { 
     title: "Test History", 
