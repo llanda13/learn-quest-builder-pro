@@ -205,13 +205,15 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
           const difficulty = getDifficultyFromBloom(bloomLevel)
           tosCriteria.push({
             topic: topicName,
-            bloom_level: bloomLevel.charAt(0).toUpperCase() + bloomLevel.slice(1),
+            bloom_level: bloomLevel, // Keep lowercase to match database
             knowledge_dimension: 'conceptual',
-            difficulty: difficulty.toLowerCase(),
+            difficulty: difficulty,
             count: itemNumbers.length
           })
         })
       })
+
+      console.log('Generating test with criteria:', tosCriteria)
 
       // Generate test using intelligent selection
       const generatedTest = await generateTestFromTOS(
@@ -226,6 +228,8 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
           tos_id: null
         }
       )
+
+      console.log('Test generated successfully:', generatedTest.id)
 
       // Return the test ID for navigation
       return generatedTest.id
@@ -254,11 +258,11 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
       // Generate questions using intelligent AI-assisted selection
       const testId = await generateQuestionsFromDatabase()
       
-      setTimeout(() => {
-        setIsGenerating(false)
-        // Navigate to test preview page
-        navigate(`/teacher/preview-test/${testId}`)
-      }, 500)
+      console.log('Navigating to preview page with testId:', testId)
+      
+      setIsGenerating(false)
+      // Navigate to test preview page immediately
+      navigate(`/teacher/preview-test/${testId}`)
     } catch (error) {
       console.error('Test generation failed:', error)
       setIsGenerating(false)
