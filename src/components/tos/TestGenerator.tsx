@@ -257,7 +257,7 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
       setTimeout(() => {
         setIsGenerating(false)
         // Navigate to test preview page
-        navigate(`/teacher/test/${testId}`)
+        navigate(`/teacher/preview-test/${testId}`)
       }, 500)
     } catch (error) {
       console.error('Test generation failed:', error)
