@@ -311,7 +311,7 @@ export function TestGenerator({ tosData, onTestGenerated, onCancel }: TestGenera
       
       setTimeout(() => {
         setIsGenerating(false)
-        navigate(`/teacher/test/${generatedTest.id}`)
+        navigate(`/teacher/generated-test/${generatedTest.id}`)
       }, 500)
     } catch (error) {
       console.error('Test generation failed:', error)

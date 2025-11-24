@@ -20,6 +20,7 @@ import TOSPage from "./pages/teacher/TOSPage";
 import IntelligentTestGenerator from "./pages/teacher/IntelligentTestGenerator";
 import MyTests from "./pages/teacher/MyTests";
 import TestPreview from "./pages/teacher/TestPreview";
+import GeneratedTestPage from "./pages/teacher/GeneratedTestPage";
 import TeacherHistory from "./pages/teacher/History";
 import TeacherReports from "./pages/teacher/Reports";
 import TeacherSettings from "./pages/teacher/Settings";
@@ -89,7 +90,8 @@ const App = () => {
                         <Route path="tos" element={<TOSPage />} />
                         <Route path="generate-test" element={<IntelligentTestGenerator />} />
                         <Route path="my-tests" element={<MyTests />} />
-                        <Route path="preview-test/:testId" element={<TestPreview />} />
+                        <Route path="test/:testId" element={<TestPreview />} />
+                        <Route path="generated-test/:testId" element={<GeneratedTestPage />} />
                         <Route path="history" element={<TeacherHistory />} />
                         <Route path="reports" element={<TeacherReports />} />
                         <Route path="export" element={<ProfessionalExport />} />
