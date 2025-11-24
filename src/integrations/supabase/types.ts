@@ -1750,6 +1750,7 @@ export type Database = {
       }
       tos_entries: {
         Row: {
+          bloom_distribution: Json | null
           course: string
           created_at: string
           created_by: string | null
@@ -1770,6 +1771,7 @@ export type Database = {
           year_section: string | null
         }
         Insert: {
+          bloom_distribution?: Json | null
           course: string
           created_at?: string
           created_by?: string | null
@@ -1790,6 +1792,7 @@ export type Database = {
           year_section?: string | null
         }
         Update: {
+          bloom_distribution?: Json | null
           course?: string
           created_at?: string
           created_by?: string | null
@@ -1901,6 +1904,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          settings: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          settings?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          settings?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       version_security_logs: {
         Row: {
