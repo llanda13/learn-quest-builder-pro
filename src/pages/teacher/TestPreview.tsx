@@ -1,37 +1,33 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Printer, Download, FileText, Save, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Printer, Download, Key } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { PDFExporter } from '@/utils/exportPdf';
+import { usePDFExport } from '@/hooks/usePDFExport';
 
 interface TestItem {
   id?: number;
-  question_text?: string;
-  question?: string;
-  question_type?: string;
-  type?: string;
-  choices?: Record<string, string> | string[];
+  question: string;
+  type: string;
   options?: string[];
-  correct_answer?: string | number;
   correctAnswer?: string | number;
   points?: number;
   difficulty?: string;
   bloom_level?: string;
   topic?: string;
-  topicName?: string;
 }
 
 export default function TestPreview() {
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { exportTestQuestions } = usePDFExport();
   const [test, setTest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [showAnswerKey, setShowAnswerKey] = useState(true);
 
   useEffect(() => {
     if (testId) {
@@ -62,43 +58,18 @@ export default function TestPreview() {
   };
 
   const handlePrint = () => {
-    setShowAnswerKey(false);
-    setTimeout(() => {
-      window.print();
-      setShowAnswerKey(true);
-    }, 100);
+    window.print();
   };
 
-  const handleExportPDF = async () => {
-    try {
-      const result = await PDFExporter.exportToPDF('test-preview-content', {
-        filename: `${test?.title || 'test'}.pdf`,
-        orientation: 'portrait',
-        format: 'a4',
-        uploadToStorage: false,
-      });
-      
-      PDFExporter.downloadBlob(result.blob, `${test?.title || 'test'}.pdf`);
-      
+  const handleExport = async () => {
+    if (!test?.items) return;
+    const success = await exportTestQuestions(test.items, test.title || 'Test');
+    if (success) {
       toast({
         title: 'Success',
-        description: 'Test exported to PDF successfully',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to export PDF',
-        variant: 'destructive',
+        description: 'Test exported successfully',
       });
     }
-  };
-
-  const handleSaveTest = async () => {
-    toast({
-      title: 'Success',
-      description: 'Test saved to My Tests',
-    });
-    navigate('/teacher/my-tests');
   };
 
   if (loading) {
@@ -127,221 +98,161 @@ export default function TestPreview() {
   const items: TestItem[] = Array.isArray(test.items) ? test.items : [];
   const totalPoints = items.reduce((sum, item) => sum + (item.points || 1), 0);
 
-  const questionsByType = items.reduce((acc, item) => {
-    const type = item.question_type || item.type || 'Multiple Choice';
-    if (!acc[type]) acc[type] = [];
-    acc[type].push(item);
-    return acc;
-  }, {} as Record<string, TestItem[]>);
-
-  const renderQuestionByType = (item: TestItem, index: number) => {
-    const questionText = item.question_text || item.question || '';
-    const type = item.question_type || item.type || 'Multiple Choice';
-    const choices = item.choices || item.options || {};
-
-    switch (type) {
-      case 'Multiple Choice':
-      case 'multiple-choice':
-        return (
-          <div key={index} className="mb-6">
-            <p className="font-medium mb-2">{index + 1}. {questionText}</p>
-            <div className="ml-6 space-y-1">
-              {Object.entries(choices).map(([key, value]) => (
-                <p key={key} className="text-sm">
-                  {key}. {value}
-                </p>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 'True or False':
-      case 'true-false':
-        return (
-          <div key={index} className="mb-4">
-            <p className="font-medium">
-              {index + 1}. __________ {questionText}
-            </p>
-          </div>
-        );
-
-      case 'Fill in the Blank':
-      case 'fill-blank':
-        return (
-          <div key={index} className="mb-4">
-            <p className="font-medium">
-              {index + 1}. {questionText.replace(/____/g, '__________')}
-            </p>
-          </div>
-        );
-
-      case 'Matching Type':
-      case 'matching':
-        return (
-          <div key={index} className="mb-6">
-            <p className="font-medium mb-2">{index + 1}. Match the items:</p>
-            <div className="grid grid-cols-2 gap-4 ml-6">
-              <div>
-                <p className="font-semibold text-sm mb-2">Column A</p>
-                <div className="space-y-1">
-                  {Object.entries(choices).slice(0, Math.ceil(Object.keys(choices).length / 2)).map(([key, value]) => (
-                    <p key={key} className="text-sm">{key}. {value}</p>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="font-semibold text-sm mb-2">Column B</p>
-                <div className="space-y-1">
-                  {Object.entries(choices).slice(Math.ceil(Object.keys(choices).length / 2)).map(([key, value]) => (
-                    <p key={key} className="text-sm">{key}. {value}</p>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'Essay':
-      case 'essay':
-      case 'Short Answer':
-        return (
-          <div key={index} className="mb-6">
-            <p className="font-medium mb-2">{index + 1}. {questionText}</p>
-            <div className="ml-6 space-y-2">
-              <div className="border-b border-muted h-8"></div>
-              <div className="border-b border-muted h-8"></div>
-              <div className="border-b border-muted h-8"></div>
-            </div>
-          </div>
-        );
-
+  const getDifficultyColor = (difficulty?: string) => {
+    switch (difficulty?.toLowerCase()) {
+      case 'easy':
+        return 'bg-green-500/10 text-green-500';
+      case 'average':
+        return 'bg-yellow-500/10 text-yellow-500';
+      case 'difficult':
+        return 'bg-red-500/10 text-red-500';
       default:
-        return (
-          <div key={index} className="mb-4">
-            <p className="font-medium">{index + 1}. {questionText}</p>
-          </div>
-        );
+        return 'bg-muted text-muted-foreground';
     }
   };
 
   return (
     <div className="container mx-auto py-8 px-4 space-y-6">
-      <div className="flex items-center justify-between print:hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <Button variant="outline" onClick={() => navigate('/teacher/my-tests')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Tests
         </Button>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowAnswerKey(!showAnswerKey)}>
-            {showAnswerKey ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-            {showAnswerKey ? 'Hide' : 'Show'} Answer Key
-          </Button>
           <Button variant="outline" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />
             Print
           </Button>
-          <Button variant="outline" onClick={handleExportPDF}>
+          <Button variant="outline" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Export PDF
-          </Button>
-          <Button onClick={handleSaveTest}>
-            <Save className="h-4 w-4 mr-2" />
-            Save Test
           </Button>
         </div>
       </div>
 
-      <div id="test-preview-content" className="bg-background">
-        <Card className="max-w-4xl mx-auto">
-          <CardContent className="p-8 space-y-8">
-            <div className="text-center space-y-2 border-b pb-6">
-              <h1 className="text-2xl font-bold">PHILIPPINE SCHOOL</h1>
-              <p className="text-sm text-muted-foreground">Excellence in Education</p>
-              <Separator className="my-4" />
-              <h2 className="text-xl font-semibold">{test.title || 'TEST EXAMINATION'}</h2>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-4 text-sm">
-                <div className="text-left">
-                  <p><span className="font-medium">Subject:</span> {test.subject || 'N/A'}</p>
-                  <p><span className="font-medium">Course:</span> {test.course || 'N/A'}</p>
-                  <p><span className="font-medium">Year & Section:</span> {test.year_section || 'N/A'}</p>
-                </div>
-                <div className="text-left">
-                  <p><span className="font-medium">Examination Period:</span> {test.exam_period || 'N/A'}</p>
-                  <p><span className="font-medium">School Year:</span> {test.school_year || 'N/A'}</p>
-                  <p><span className="font-medium">Total Items:</span> {items.length} ({totalPoints} points)</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t text-sm">
-                <p><span className="font-medium">Prepared by:</span> _____________________</p>
-                <p><span className="font-medium">Noted by:</span> _____________________</p>
-              </div>
+      {/* Test Header */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">{test.title || 'Untitled Test'}</CardTitle>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {test.subject && <Badge variant="secondary">{test.subject}</Badge>}
+            {test.course && <Badge variant="secondary">{test.course}</Badge>}
+            {test.exam_period && <Badge variant="secondary">{test.exam_period}</Badge>}
+            {test.school_year && <Badge variant="secondary">{test.school_year}</Badge>}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-4 bg-muted rounded-lg">
+              <div className="text-2xl font-bold text-primary">{items.length}</div>
+              <div className="text-sm text-muted-foreground">Total Questions</div>
             </div>
-
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold">General Instructions:</h3>
-              <div className="ml-6 space-y-1 text-sm">
-                <p>• Write your Name, Section, and Student Number on your answer sheet</p>
-                <p>• Read each item carefully before answering</p>
-                <p>• For Multiple Choice: Encircle the letter of the correct answer</p>
-                <p>• For True or False: Write TRUE or FALSE on the blank</p>
-                <p>• For Fill in the Blank: Write the correct answer on the blank provided</p>
-                <p>• For Matching Type: Write the letter of the correct match</p>
-                <p>• For Essay: Answer in complete sentences with clear explanations</p>
-                <p>• No cheating. Any form of dishonesty will result in automatic failure</p>
-                <p>• {test.time_limit ? `Time Limit: ${test.time_limit} minutes` : 'Manage your time wisely'}</p>
-              </div>
+            <div className="text-center p-4 bg-muted rounded-lg">
+              <div className="text-2xl font-bold text-primary">{totalPoints}</div>
+              <div className="text-sm text-muted-foreground">Total Points</div>
             </div>
+            {test.time_limit && (
+              <div className="text-center p-4 bg-muted rounded-lg">
+                <div className="text-2xl font-bold text-primary">{test.time_limit}</div>
+                <div className="text-sm text-muted-foreground">Minutes</div>
+              </div>
+            )}
+            {test.version_label && (
+              <div className="text-center p-4 bg-muted rounded-lg">
+                <div className="text-2xl font-bold text-primary">{test.version_label}</div>
+                <div className="text-sm text-muted-foreground">Version</div>
+              </div>
+            )}
+          </div>
 
-            <Separator />
+          {test.instructions && (
+            <div className="mt-4 p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold mb-2">Instructions</h3>
+              <p className="text-sm text-muted-foreground">{test.instructions}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-            <div className="space-y-8">
-              {Object.entries(questionsByType).map(([type, questions]) => (
-                <div key={type}>
-                  <h3 className="text-lg font-semibold mb-4 uppercase">{type}</h3>
-                  <div className="space-y-4">
-                    {questions.map((item) => {
-                      const globalIndex = items.indexOf(item);
-                      return renderQuestionByType(item, globalIndex);
-                    })}
+      {/* Questions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Questions</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {items.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">No questions in this test</p>
+          ) : (
+            items.map((item, index) => (
+              <div key={item.id || index} className="space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="outline" className="font-mono">
+                        Q{index + 1}
+                      </Badge>
+                      {item.difficulty && (
+                        <Badge className={getDifficultyColor(item.difficulty)}>
+                          {item.difficulty}
+                        </Badge>
+                      )}
+                      {item.bloom_level && (
+                        <Badge variant="secondary">{item.bloom_level}</Badge>
+                      )}
+                      {item.topic && (
+                        <Badge variant="secondary">{item.topic}</Badge>
+                      )}
+                      {item.points && (
+                        <Badge variant="outline">{item.points} pts</Badge>
+                      )}
+                    </div>
+                    <p className="text-base leading-relaxed">{item.question}</p>
+                    
+                    {item.type === 'multiple-choice' && item.options && (
+                      <div className="mt-3 space-y-2 ml-6">
+                        {item.options.map((option, optIndex) => (
+                          <div key={optIndex} className="flex items-start gap-2">
+                            <span className="text-muted-foreground font-mono">
+                              {String.fromCharCode(65 + optIndex)}.
+                            </span>
+                            <span>{option}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {index < items.length - 1 && <Separator className="mt-6" />}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Answer Key */}
+      {test.answer_key && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Answer Key
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {items.map((item, index) => (
+                <div key={item.id || index} className="p-3 bg-muted rounded-lg text-center">
+                  <div className="text-sm text-muted-foreground">Q{index + 1}</div>
+                  <div className="font-mono font-bold text-primary">
+                    {item.correctAnswer !== undefined ? item.correctAnswer : '—'}
                   </div>
                 </div>
               ))}
             </div>
-
-            {showAnswerKey && (
-              <>
-                <Separator className="my-8 print:hidden" />
-                <div className="print:hidden bg-muted p-6 rounded-lg border-2 border-primary">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    ANSWER KEY (Teacher Copy Only)
-                  </h3>
-                  <div className="grid grid-cols-5 gap-3">
-                    {items.map((item, index) => (
-                      <div key={index} className="text-sm">
-                        <span className="font-medium">{index + 1}.</span>{' '}
-                        <span className="text-primary font-semibold">
-                          {item.correct_answer || item.correctAnswer || 'N/A'}
-                        </span>
-                        {item.points && item.points > 1 && (
-                          <span className="text-xs text-muted-foreground ml-1">
-                            ({item.points}pts)
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="text-center text-xs text-muted-foreground pt-6 border-t">
-              <p>This examination is property of the school. Unauthorized reproduction is prohibited.</p>
-              <p className="mt-1">Generated on {new Date().toLocaleDateString()}</p>
-            </div>
           </CardContent>
         </Card>
-      </div>
+      )}
     </div>
   );
 }

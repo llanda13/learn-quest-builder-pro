@@ -109,6 +109,111 @@ export default function IntelligentTestGenerator() {
     setRequirements(requirements.filter((_, i) => i !== index));
   };
 
+  const handleGenerateCompleteTest = async () => {
+    if (!testName.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a test name',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (requirements.length === 0 || requirements.some(r => !r.topic.trim())) {
+      toast({
+        title: 'Error',
+        description: 'Please add at least one valid requirement',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const { completeTestGenerator } = await import('@/services/ai/completeTestGenerator');
+      
+      // Convert requirements to proper format
+      const tosRequirements = requirements.map(r => ({
+        topic: r.topic,
+        bloom_level: r.bloomLevel,
+        difficulty: r.difficulty,
+        count: r.count
+      }));
+
+      // Get TOS metadata if a TOS is selected
+      let tosMetadata: any = {
+        subject: '',
+        course: '',
+        year_section: '',
+        exam_period: '',
+        school_year: '',
+        tos_id: selectedTOS || undefined
+      };
+
+      if (selectedTOS) {
+        const { data: tosData } = await supabase
+          .from('tos_entries')
+          .select('*')
+          .eq('id', selectedTOS)
+          .single();
+        
+        if (tosData) {
+          tosMetadata = {
+            subject: tosData.subject_no || '',
+            course: tosData.course || '',
+            year_section: tosData.year_section || '',
+            exam_period: tosData.exam_period || '',
+            school_year: tosData.school_year || '',
+            tos_id: selectedTOS
+          };
+        }
+      }
+
+      // 🧠 EXECUTE COMPLETE AI FALLBACK ALGORITHM
+      console.log("🚀 Starting Complete Test Generation with AI Fallback...");
+      
+      const result = await completeTestGenerator.generateCompleteTest(
+        testName,
+        tosRequirements,
+        tosMetadata
+      );
+
+      // Show generation results
+      if (result.aiGeneratedCount > 0) {
+        toast({
+          title: '✨ Test Generated with AI Support',
+          description: `Created test with ${result.totalQuestions} questions (${result.existingQuestionsCount} from bank, ${result.aiGeneratedCount} AI-generated)`,
+        });
+      } else {
+        toast({
+          title: '✓ Test Generated',
+          description: `Created test with ${result.totalQuestions} questions from existing bank`,
+        });
+      }
+
+      if (result.missingRequirements.length > 0) {
+        toast({
+          title: 'Note',
+          description: `Some requirements could not be fully met. Check the generated test.`,
+        });
+      }
+
+      // STEP 5: Redirect to GeneratedTestPage
+      console.log(`✅ Redirecting to /teacher/generated-test/${result.testId}`);
+      navigate(`/teacher/generated-test/${result.testId}`);
+
+    } catch (error: any) {
+      console.error('❌ Test generation error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to generate test. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const handleGeneratePreview = async () => {
     if (!testName.trim()) {
       toast({ title: 'Error', description: 'Please enter a test name', variant: 'destructive' });
@@ -543,24 +648,46 @@ export default function IntelligentTestGenerator() {
             ))}
           </div>
 
-          <Button
-            onClick={handleGeneratePreview}
-            disabled={generating}
-            className="w-full"
-            size="lg"
-          >
-            {generating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating Preview...
-              </>
-            ) : (
-              <>
-                <Eye className="mr-2 h-4 w-4" />
-                Generate Preview
-              </>
-            )}
-          </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Button
+              onClick={handleGeneratePreview}
+              disabled={generating}
+              className="w-full"
+              size="lg"
+              variant="outline"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Preview...
+                </>
+              ) : (
+                <>
+                  <Eye className="mr-2 h-4 w-4" />
+                  Generate Preview
+                </>
+              )}
+            </Button>
+
+            <Button
+              onClick={handleGenerateCompleteTest}
+              disabled={generating || !testName.trim() || requirements.some(r => !r.topic.trim())}
+              className="w-full"
+              size="lg"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Test...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  Generate Complete Test from TOS
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
