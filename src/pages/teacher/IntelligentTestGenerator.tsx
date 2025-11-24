@@ -130,7 +130,7 @@ export default function IntelligentTestGenerator() {
 
     setGenerating(true);
     try {
-      const { completeTestGenerator } = await import('@/services/ai/completeTestGenerator');
+      const { generateTestFromTOS } = await import('@/services/ai/testGenerationService');
       
       // Convert requirements to proper format
       const tosRequirements = requirements.map(r => ({
@@ -172,35 +172,21 @@ export default function IntelligentTestGenerator() {
       // 🧠 EXECUTE COMPLETE AI FALLBACK ALGORITHM
       console.log("🚀 Starting Complete Test Generation with AI Fallback...");
       
-      const result = await completeTestGenerator.generateCompleteTest(
-        testName,
+      const result = await generateTestFromTOS(
         tosRequirements,
+        testName,
         tosMetadata
       );
 
       // Show generation results
-      if (result.aiGeneratedCount > 0) {
-        toast({
-          title: '✨ Test Generated with AI Support',
-          description: `Created test with ${result.totalQuestions} questions (${result.existingQuestionsCount} from bank, ${result.aiGeneratedCount} AI-generated)`,
-        });
-      } else {
-        toast({
-          title: '✓ Test Generated',
-          description: `Created test with ${result.totalQuestions} questions from existing bank`,
-        });
-      }
-
-      if (result.missingRequirements.length > 0) {
-        toast({
-          title: 'Note',
-          description: `Some requirements could not be fully met. Check the generated test.`,
-        });
-      }
+      toast({
+        title: '✓ Test Generated',
+        description: `Created test with ${result.questions.length} questions`,
+      });
 
       // STEP 5: Redirect to GeneratedTestPage
-      console.log(`✅ Redirecting to /teacher/generated-test/${result.testId}`);
-      navigate(`/teacher/generated-test/${result.testId}`);
+      console.log(`✅ Redirecting to /teacher/preview-test/${result.id}`);
+      navigate(`/teacher/preview-test/${result.id}`);
 
     } catch (error: any) {
       console.error('❌ Test generation error:', error);

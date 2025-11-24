@@ -20,7 +20,6 @@ import { usePresence } from "@/hooks/usePresence";
 import { buildTestConfigFromTOS } from "@/utils/testVersions";
 import { SufficiencyAnalysisPanel } from "@/components/analysis/SufficiencyAnalysisPanel";
 import { generateTestFromTOS, TOSCriteria } from "@/services/ai/testGenerationService";
-import { generateCompleteTestFromTOS } from "@/services/ai/completeTestGenerationService";
 import { useNavigate } from "react-router-dom";
 
 const topicSchema = z.object({
@@ -395,8 +394,8 @@ export const TOSBuilder = ({ onBack }: TOSBuilderProps) => {
         tos_id: savedTOSId,
       };
 
-      // Use the new complete test generation service with AI fallback
-      const result = await generateCompleteTestFromTOS(tosMatrix, testData);
+      // Use the test generation service with AI fallback
+      const result = await generateTestFromTOS(criteria, testData.title, testData);
       
       setGenerationProgress(90);
       setGenerationStatus("Test saved successfully!");
@@ -408,7 +407,7 @@ export const TOSBuilder = ({ onBack }: TOSBuilderProps) => {
       
       // Redirect to the generated test page
       setTimeout(() => {
-        navigate(`/teacher/generated-test/${result.testId}`);
+        navigate(`/teacher/preview-test/${result.id}`);
       }, 500);
       
     } catch (error) {
