@@ -167,7 +167,19 @@ export async function generateTestFromTOS(
     throw new Error("Cannot save test without valid TOS ID");
   }
   
-  console.log(`   ✓ TOS ID validated: ${testData.tos_id}`);
+  // Verify TOS exists in database
+  const { data: tosEntry, error: tosError } = await supabase
+    .from('tos_entries')
+    .select('id')
+    .eq('id', testData.tos_id)
+    .single();
+
+  if (tosError || !tosEntry) {
+    console.error("❌ TOS entry not found:", testData.tos_id);
+    throw new Error(`TOS entry not found (${testData.tos_id}). Please create TOS first.`);
+  }
+  
+  console.log(`   ✓ TOS exists in database: ${testData.tos_id}`);
 
   const { data: generatedTest, error: insertError } = await supabase
     .from('generated_tests')
