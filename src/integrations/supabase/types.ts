@@ -1976,6 +1976,7 @@ export type Database = {
           total_pairs: number
         }[]
       }
+      can_access_tos: { Args: { tos_owner: string }; Returns: boolean }
       check_question_similarity: {
         Args: {
           p_bloom_level: string
@@ -2032,8 +2033,8 @@ export type Database = {
         Returns: undefined
       }
       is_admin:
-        | { Args: { user_id: string }; Returns: boolean }
         | { Args: never; Returns: boolean }
+        | { Args: { uid: string }; Returns: boolean }
       is_document_collaborator: {
         Args: { p_document_id: string; p_document_type: string }
         Returns: boolean
@@ -2054,6 +2055,7 @@ export type Database = {
         Args: { p_question_id: string; p_test_id: string }
         Returns: undefined
       }
+      validate_tos_exists: { Args: { p_tos_id: string }; Returns: boolean }
       validate_version_balance: {
         Args: { p_parent_test_id: string }
         Returns: {
