@@ -32,12 +32,6 @@ const teacherMenuItems = [
     description: "Create specifications" 
   },
   { 
-    title: "AI Test Generator", 
-    href: "/teacher/generate-test", 
-    icon: Sparkles,
-    description: "Generate tests" 
-  },
-  { 
     title: "My Tests", 
     href: "/teacher/my-tests", 
     icon: BookOpen,
