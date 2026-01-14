@@ -8,7 +8,8 @@ import {
   PlusCircle, 
   Clock, 
   Download,
-  Sparkles
+  BarChart3,
+  Database
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -29,14 +30,16 @@ export default function TeacherDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const [testsRes, recentRes] = await Promise.all([
+      const [testsRes, recentRes, questionsRes] = await Promise.all([
         supabase.from('generated_tests').select('*', { count: 'exact' }),
-        supabase.from('generated_tests').select('*').order('created_at', { ascending: false }).limit(5)
+        supabase.from('generated_tests').select('*').order('created_at', { ascending: false }).limit(5),
+        supabase.from('questions').select('*', { count: 'exact' })
       ]);
 
       return {
         totalTests: testsRes.count || 0,
-        recentTests: recentRes.data || []
+        recentTests: recentRes.data || [],
+        totalQuestions: questionsRes.count || 0
       };
     }
   });
@@ -59,8 +62,8 @@ export default function TeacherDashboard() {
           </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
+        {/* Stats Cards - Tests Generated, Total Questions, TOS Management, Test History */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Tests Generated</CardTitle>
@@ -69,6 +72,17 @@ export default function TeacherDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{stats?.totalTests || 0}</div>
               <p className="text-xs text-muted-foreground">Total questionnaires</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Questions</CardTitle>
+              <Database className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.totalQuestions || 0}</div>
+              <p className="text-xs text-muted-foreground">In question bank</p>
             </CardContent>
           </Card>
 
@@ -93,22 +107,19 @@ export default function TeacherDashboard() {
           </Card>
         </div>
 
-        {/* AI-Assisted Generation Feature */}
-        <Card className="border-primary/20">
+        {/* Usage Over Time - Moved from Reports */}
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              AI-Assisted Test Generation
+              <BarChart3 className="h-5 w-5 text-primary" />
+              Usage Over Time
             </CardTitle>
-            <CardDescription>
-              Generate tests automatically from your Table of Specifications. 
-              The system will intelligently select or create non-redundant questions.
-            </CardDescription>
+            <CardDescription>Test generation activity this semester</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => navigate("/teacher/generate-test")} className="w-full">
-              Start Generating
-            </Button>
+            <div className="h-48 flex items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg">
+              Chart visualization will be implemented here
+            </div>
           </CardContent>
         </Card>
 
@@ -125,7 +136,7 @@ export default function TeacherDashboard() {
                   <div
                     key={test.id}
                     className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent cursor-pointer"
-                    onClick={() => navigate(`/teacher/test/${test.id}`)}
+                    onClick={() => navigate(`/teacher/generated-test/${test.id}`)}
                   >
                     <div>
                       <p className="font-medium">{test.title || 'Untitled Test'}</p>
@@ -149,9 +160,3 @@ export default function TeacherDashboard() {
       </div>
   );
 }
-
-
-
-
-
-
