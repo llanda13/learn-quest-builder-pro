@@ -1,7 +1,28 @@
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, TrendingUp, Users, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { BarChart3, TrendingUp, Users, FileText, Sparkles } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 export default function Reports() {
+  const navigate = useNavigate();
+
+  const { data: stats } = useQuery({
+    queryKey: ['report-stats'],
+    queryFn: async () => {
+      const [testsRes, studentsRes] = await Promise.all([
+        supabase.from('generated_tests').select('*', { count: 'exact' }),
+        supabase.from('test_assignments').select('student_id', { count: 'exact' })
+      ]);
+
+      return {
+        testsGenerated: testsRes.count || 0,
+        studentsAssessed: studentsRes.count || 0
+      };
+    }
+  });
+
   return (
     <div className="container mx-auto py-8 px-4 space-y-6">
         <div>
@@ -20,21 +41,8 @@ export default function Reports() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">24</div>
+              <div className="text-2xl font-bold">{stats?.testsGenerated || 0}</div>
               <p className="text-xs text-muted-foreground mt-1">This semester</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-green-500" />
-                Total Questions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">1,248</div>
-              <p className="text-xs text-muted-foreground mt-1">In question bank</p>
             </CardContent>
           </Card>
 
@@ -46,7 +54,7 @@ export default function Reports() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">156</div>
+              <div className="text-2xl font-bold">{stats?.studentsAssessed || 0}</div>
               <p className="text-xs text-muted-foreground mt-1">Across all tests</p>
             </CardContent>
           </Card>
@@ -63,17 +71,55 @@ export default function Reports() {
               <p className="text-xs text-muted-foreground mt-1">Class average</p>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-green-500" />
+                Completion Rate
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">92%</div>
+              <p className="text-xs text-muted-foreground mt-1">Test completion</p>
+            </CardContent>
+          </Card>
         </div>
 
-        <Card>
+        {/* AI-Assisted Test Generation - Moved from Dashboard */}
+        <Card className="border-primary/20">
           <CardHeader>
-            <CardTitle>Usage Over Time</CardTitle>
-            <CardDescription>Test generation activity this semester</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              AI-Assisted Test Generation
+            </CardTitle>
+            <CardDescription>
+              Generate tests automatically from your Table of Specifications. 
+              The system will intelligently select or create non-redundant questions.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center text-muted-foreground">
-              Chart visualization will be implemented here
-            </div>
+            <Button onClick={() => navigate("/teacher/generate-test")} className="w-full">
+              Start Generating
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* TOS Management - Moved from Dashboard */}
+        <Card className="cursor-pointer hover:bg-accent/50" onClick={() => navigate("/teacher/tos")}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              TOS Management
+            </CardTitle>
+            <CardDescription>
+              Create and manage your Table of Specifications for structured test generation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" className="w-full">
+              Manage TOS
+            </Button>
           </CardContent>
         </Card>
 
@@ -83,7 +129,7 @@ export default function Reports() {
             <CardDescription>Distribution of questions by topic</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-48 flex items-center justify-center text-muted-foreground">
+            <div className="h-48 flex items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg">
               Topic distribution chart will be implemented here
             </div>
           </CardContent>
