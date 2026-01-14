@@ -53,17 +53,22 @@ export const TOS = {
 
     console.log("📝 Creating TOS entry for user:", user.id);
     
+    // Ensure title is always set
+    const title = payload.title || `${payload.subject_no || payload.course} - ${payload.exam_period || 'Examination'}`;
+    
     const tosData = {
       ...payload,
-      created_by: 'teacher',
-      owner: user.id
+      title,
+      owner: user.id,        // REQUIRED: UUID for RLS policy
+      created_by: user.id    // REQUIRED: UUID for RLS policy
     };
     
     console.log("📦 TOS data to insert:", {
       title: tosData.title,
       course: tosData.course,
       total_items: tosData.total_items,
-      owner: tosData.owner
+      owner: tosData.owner,
+      created_by: tosData.created_by,
     });
     
     const { data, error } = await supabase
@@ -79,10 +84,9 @@ export const TOS = {
         hint: error.hint,
         code: error.code
       });
-      
-      // Provide specific error messages based on error code
+
       if (error.code === '42501') {
-        throw new Error(`Permission denied: User does not have permission to create TOS. Please ensure you have 'teacher' or 'admin' role assigned.`);
+        throw new Error(`Permission denied: RLS blocked the insert. Please ensure you are logged in.`);
       } else if (error.code === '23505') {
         throw new Error(`Duplicate entry: A TOS with this information already exists.`);
       } else if (error.code === '23502') {

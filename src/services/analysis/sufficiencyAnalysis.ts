@@ -1,155 +1,187 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export interface SufficiencyResult {
+// Type definitions
+export interface TopicResult {
   topic: string;
   bloomLevel: string;
   required: number;
   available: number;
-  approved: number;
-  sufficiency: 'pass' | 'warning' | 'fail';
   gap: number;
+  sufficiency: "pass" | "warning" | "fail";
 }
 
 export interface SufficiencyAnalysis {
-  overallStatus: 'pass' | 'warning' | 'fail';
+  overallStatus: "pass" | "warning" | "fail";
   overallScore: number;
   totalRequired: number;
   totalAvailable: number;
-  results: SufficiencyResult[];
-  bloomDistribution: {
-    level: string;
-    required: number;
-    available: number;
-    percentage: number;
-  }[];
+  results: TopicResult[];
   recommendations: string[];
 }
 
+const normalize = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+
+const normalizeBloom = (bloom: string) => {
+  const b = bloom.toLowerCase().trim();
+  // Map various formats to standard names
+  if (b.includes("remember")) return "remembering";
+  if (b.includes("understand")) return "understanding";
+  if (b.includes("apply")) return "applying";
+  if (b.includes("analy")) return "analyzing";
+  if (b.includes("evaluat")) return "evaluating";
+  if (b.includes("creat")) return "creating";
+  return b;
+};
+
 export async function analyzeTOSSufficiency(tosMatrix: any): Promise<SufficiencyAnalysis> {
-  const results: SufficiencyResult[] = [];
+  // Fetch all non-deleted questions with topic and bloom_level
+  const { data: questions, error } = await supabase
+    .from("questions")
+    .select("id, topic, bloom_level, approved")
+    .eq("deleted", false);
+
+  if (error) {
+    console.error("Error fetching questions:", error);
+    throw new Error("Failed to analyze question bank sufficiency");
+  }
+
+  // Group questions by normalized topic + bloom level
+  const questionMap: Record<string, Record<string, { total: number; approved: number }>> = {};
+
+  (questions || []).forEach((q) => {
+    const topicKey = normalize(q.topic || "");
+    const bloomKey = normalizeBloom(q.bloom_level || "");
+    
+    if (!topicKey || !bloomKey) return;
+
+    if (!questionMap[topicKey]) {
+      questionMap[topicKey] = {};
+    }
+    if (!questionMap[topicKey][bloomKey]) {
+      questionMap[topicKey][bloomKey] = { total: 0, approved: 0 };
+    }
+    
+    questionMap[topicKey][bloomKey].total += 1;
+    if (q.approved) {
+      questionMap[topicKey][bloomKey].approved += 1;
+    }
+  });
+
+  const results: TopicResult[] = [];
   let totalRequired = 0;
   let totalAvailable = 0;
-  let totalApproved = 0;
-  const bloomCounts: Record<string, { required: number; available: number }> = {};
 
-  // Analyze each topic and bloom level combination
+  const bloomLevels = ["remembering", "understanding", "applying", "analyzing", "evaluating", "creating"];
+
+  // Process each topic in the TOS matrix
   for (const topic of tosMatrix.topics || []) {
-    const topicName = topic.topic_name || topic.topic;
-    
-    // Get bloom distribution for this topic
-    const bloomLevels = ['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating'];
-    
-    for (const bloomLevel of bloomLevels) {
-      const required = topic[`${bloomLevel}_items`] || 0;
-      if (required === 0) continue;
+    const topicName = topic.topic_name || topic.topic || topic.name;
+    if (!topicName) continue;
+
+    const normalizedTopic = normalize(topicName);
+    const matrixEntry = tosMatrix.matrix?.[topicName];
+
+    for (const bloom of bloomLevels) {
+      // Get required count from TOS matrix
+      let required = 0;
+
+// 1️⃣ Legacy / most reliable (what your UI actually saves)
+if (topic[`${bloom}_items`] != null) {
+  required = Number(topic[`${bloom}_items`]) || 0;
+}
+
+// 2️⃣ Matrix format (optional override)
+else if (matrixEntry?.[bloom]?.count != null) {
+  required = Number(matrixEntry[bloom].count) || 0;
+}
+
+// 3️⃣ Distribution format (fallback)
+else if (Array.isArray(tosMatrix.distribution?.[topicName]?.[bloom])) {
+  required = tosMatrix.distribution[topicName][bloom].length;
+}
+
+      if (required === 0) continue; // Skip if no items required for this bloom level
+
+      // Find available questions - use fuzzy matching for topics
+      let available = 0;
+      
+      // Exact match first
+      if (questionMap[normalizedTopic]?.[bloom]) {
+        available = questionMap[normalizedTopic][bloom].total;
+      } else {
+        // Fuzzy match: check if any topic contains our normalized topic name
+        for (const [dbTopic, bloomData] of Object.entries(questionMap)) {
+          if (dbTopic.includes(normalizedTopic) || normalizedTopic.includes(dbTopic)) {
+            available += bloomData[bloom]?.total || 0;
+          }
+        }
+      }
 
       totalRequired += required;
+      totalAvailable += Math.min(available, required);
 
-      // Initialize bloom counts
-      if (!bloomCounts[bloomLevel]) {
-        bloomCounts[bloomLevel] = { required: 0, available: 0 };
-      }
-      bloomCounts[bloomLevel].required += required;
+      const gap = Math.max(0, required - available);
 
-      // Query available questions
-      const { data: questions, error } = await supabase
-        .from('questions')
-        .select('id, approved, status, deleted, quality_score')
-        .eq('topic', topicName)
-        .eq('bloom_level', bloomLevel)
-        .eq('deleted', false);
-
-      if (error) {
-        console.error('Error querying questions:', error);
-        continue;
-      }
-
-      const available = questions?.length || 0;
-      const approved = questions?.filter(q => q.approved && q.status === 'approved').length || 0;
-
-      totalAvailable += available;
-      totalApproved += approved;
-      bloomCounts[bloomLevel].available += available;
-
-      const gap = required - approved;
-      let sufficiency: 'pass' | 'warning' | 'fail';
-
-      if (approved >= required) {
-        sufficiency = 'pass';
-      } else if (approved >= required * 0.7) {
-        sufficiency = 'warning';
+      let sufficiency: "pass" | "warning" | "fail";
+      if (required === 0) {
+        sufficiency = "pass";
+      } else if (available >= required) {
+        sufficiency = "pass";
+      } else if (available >= required * 0.7) {
+        sufficiency = "warning";
       } else {
-        sufficiency = 'fail';
+        sufficiency = "fail";
       }
+
 
       results.push({
         topic: topicName,
-        bloomLevel,
+        bloomLevel: bloom.charAt(0).toUpperCase() + bloom.slice(1),
         required,
         available,
-        approved,
+        gap,
         sufficiency,
-        gap: Math.max(0, gap)
       });
     }
   }
 
-  // Calculate bloom distribution
-  const bloomDistribution = Object.entries(bloomCounts).map(([level, counts]) => ({
-    level,
-    required: counts.required,
-    available: counts.available,
-    percentage: counts.required > 0 ? (counts.available / counts.required) * 100 : 0
-  }));
+  // Calculate overall score and status
+  const totalGap = results.reduce((sum, r) => sum + r.gap, 0);
+  const overallScore = totalRequired === 0 ? 100 : Math.min(100, (totalAvailable / totalRequired) * 100);
+
+let overallStatus: "pass" | "warning" | "fail";
+if (totalRequired === 0) {
+  overallStatus = "pass";
+} else if (totalGap === 0) {
+  overallStatus = "pass";
+} else if (overallScore >= 70) {
+  overallStatus = "warning";
+} else {
+  overallStatus = "fail";
+}
+
 
   // Generate recommendations
   const recommendations: string[] = [];
-  const failedItems = results.filter(r => r.sufficiency === 'fail');
-  const warningItems = results.filter(r => r.sufficiency === 'warning');
 
-  if (failedItems.length > 0) {
-    recommendations.push(`Critical: ${failedItems.length} topic-bloom combinations have insufficient questions (< 70% coverage)`);
-    failedItems.slice(0, 3).forEach(item => {
-      recommendations.push(`  • ${item.topic} - ${item.bloomLevel}: Need ${item.gap} more approved questions`);
-    });
-  }
-
-  if (warningItems.length > 0) {
-    recommendations.push(`Warning: ${warningItems.length} combinations have marginal coverage (70-99%)`);
-  }
-
-  // Check bloom level balance
-  const bloomGaps = bloomDistribution.filter(b => b.percentage < 80);
-  if (bloomGaps.length > 0) {
-    recommendations.push(`Bloom level gaps detected in: ${bloomGaps.map(b => b.level).join(', ')}`);
-  }
-
-  if (totalApproved >= totalRequired) {
-    recommendations.push('✓ Sufficient approved questions available for test generation');
+  if (totalRequired === 0) {
+    recommendations.push("Define TOS requirements to compute question gaps.");
+  } else if (overallStatus === "pass") {
+    recommendations.push("✓ Question bank has sufficient coverage for all topics and bloom levels.");
   } else {
-    const deficit = totalRequired - totalApproved;
-    recommendations.push(`Need ${deficit} more approved questions to meet TOS requirements`);
+    if (totalGap > 0) {
+      recommendations.push(`AI will generate ${totalGap} additional question(s) to complete the exam.`);
+    }
   }
 
-  // Calculate overall status and score
-  const overallScore = totalRequired > 0 ? (totalApproved / totalRequired) * 100 : 0;
-  let overallStatus: 'pass' | 'warning' | 'fail';
-
-  if (overallScore >= 100) {
-    overallStatus = 'pass';
-  } else if (overallScore >= 70) {
-    overallStatus = 'warning';
-  } else {
-    overallStatus = 'fail';
-  }
 
   return {
     overallStatus,
     overallScore,
     totalRequired,
-    totalAvailable: totalApproved, // Use approved count for availability
+    totalAvailable,
     results,
-    bloomDistribution,
-    recommendations
+    recommendations,
   };
 }
