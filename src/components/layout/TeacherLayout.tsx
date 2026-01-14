@@ -12,8 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
-  BookOpen,
-  Target
+  BookOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -49,12 +48,6 @@ const teacherMenuItems = [
     href: "/teacher/export", 
     icon: FileText,
     description: "Professional exports" 
-  },
-  { 
-    title: "Rubrics", 
-    href: "/teacher/rubrics", 
-    icon: Target,
-    description: "Scoring rubrics" 
   },
   { 
     title: "Test History", 
