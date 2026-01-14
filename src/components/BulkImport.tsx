@@ -30,7 +30,7 @@ interface ParsedQuestion {
   bloom_level?: string;
   difficulty?: string;
   knowledge_dimension?: string;
-  created_by: 'bulk_import';
+  created_by: 'teacher' | 'admin' | 'ai';
   approved: boolean;
   needs_review: boolean;
   ai_confidence_score?: number;
@@ -239,7 +239,7 @@ export default function BulkImport({
           D: q.D || 'Option D'
         } : undefined,
         correct_answer: q.Correct || 'A',
-        created_by: 'bulk_import',
+        created_by: 'teacher',
         approved: false,
         needs_review: true,
         subject: bulkMetadata.subject || undefined,
@@ -326,7 +326,7 @@ export default function BulkImport({
         bloom_level: q.bloom_level || 'understanding',
         difficulty: q.difficulty || 'average',
         knowledge_dimension: q.knowledge_dimension || 'conceptual',
-        created_by: 'bulk_import' as const,
+        created_by: 'teacher' as const,
         approved: false,
         ai_confidence_score: q.ai_confidence_score || 0.5,
         needs_review: (q.needs_review !== false)
@@ -499,7 +499,7 @@ export default function BulkImport({
           const normalized = normalizeRow(row);
           normalizedData.push({
             ...normalized,
-            created_by: 'bulk_import',
+            created_by: 'teacher',
             approved: false,
             needs_review: true,
           } as ParsedQuestion);
@@ -585,6 +585,13 @@ export default function BulkImport({
       setProgress(80);
       setCurrentStep('Saving to database...');
 
+      // Valid knowledge dimensions from database constraint
+      const validKnowledgeDimensions = ['factual', 'conceptual', 'procedural', 'metacognitive'];
+      const normalizeKnowledgeDimension = (val: string | undefined): string => {
+        const normalized = (val || 'conceptual').toLowerCase().trim();
+        return validKnowledgeDimensions.includes(normalized) ? normalized : 'conceptual';
+      };
+
       // Ensure all required fields are present with proper types
       const questionsWithDefaults = normalizedData.map(q => ({
         topic: q.topic || 'General',
@@ -592,10 +599,10 @@ export default function BulkImport({
         question_type: (q.question_type as 'mcq' | 'true_false' | 'essay' | 'short_answer') || 'mcq',
         choices: q.choices || {},
         correct_answer: q.correct_answer || '',
-        bloom_level: q.bloom_level || 'understanding',
-        difficulty: q.difficulty || 'average',
-        knowledge_dimension: q.knowledge_dimension || 'conceptual',
-        created_by: 'bulk_import' as const,
+        bloom_level: (q.bloom_level || 'understanding').toLowerCase(),
+        difficulty: (q.difficulty || 'average').toLowerCase(),
+        knowledge_dimension: normalizeKnowledgeDimension(q.knowledge_dimension),
+        created_by: 'teacher' as const,
         approved: false,
         ai_confidence_score: q.ai_confidence_score || 0.5,
         needs_review: (q.needs_review !== false)
