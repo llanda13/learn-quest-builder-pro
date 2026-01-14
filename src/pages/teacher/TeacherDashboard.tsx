@@ -44,6 +44,7 @@ export default function TeacherDashboard() {
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
+  
 
   return (
     <div className="p-6 space-y-6">
@@ -148,3 +149,9 @@ export default function TeacherDashboard() {
       </div>
   );
 }
+
+
+
+
+
+

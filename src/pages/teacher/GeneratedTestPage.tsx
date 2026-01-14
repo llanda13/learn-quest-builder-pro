@@ -4,18 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Printer, Download, Key } from "lucide-react";
+import { ArrowLeft, Printer, Download, Key, RefreshCw } from "lucide-react";
 import { GeneratedTests } from "@/services/db/generatedTests";
 import { useToast } from "@/hooks/use-toast";
 import { usePDFExport } from "@/hooks/usePDFExport";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTestAutoRepair } from "@/hooks/useTestAutoRepair";
 
 interface TestItem {
   question_text?: string;
   question?: string;
   question_type?: string;
   type?: string;
-  choices?: string[];
+  choices?: Record<string, string> | string[];
   options?: string[];
   correct_answer?: string | number;
   correctAnswer?: string | number;
@@ -23,6 +24,57 @@ interface TestItem {
   difficulty?: string;
   bloom_level?: string;
   topic?: string;
+}
+
+interface GroupedQuestions {
+  mcq: TestItem[];
+  secondary: TestItem[]; // Either T/F OR Short Answer (mutually exclusive)
+  essay: TestItem[];
+  secondaryType: 'true_false' | 'short_answer' | null;
+}
+
+function groupQuestionsByType(items: TestItem[]): GroupedQuestions {
+  const mcq: TestItem[] = [];
+  const trueFalse: TestItem[] = [];
+  const shortAnswer: TestItem[] = [];
+  const essay: TestItem[] = [];
+
+  for (const item of items) {
+    const type = (item.question_type || item.type || '').toLowerCase();
+    if (type === 'mcq' || type === 'multiple-choice' || type === 'multiple_choice') {
+      mcq.push(item);
+    } else if (type === 'true_false' || type === 'true-false' || type === 'truefalse') {
+      trueFalse.push(item);
+    } else if (type === 'short_answer' || type === 'fill-blank' || type === 'fill_blank' || type === 'identification') {
+      shortAnswer.push(item);
+    } else if (type === 'essay') {
+      essay.push(item);
+    }
+  }
+
+  // Determine which secondary type to use (only one should have items - mutually exclusive)
+  // If both somehow have items, prefer the one with more questions
+  let secondaryType: 'true_false' | 'short_answer' | null = null;
+  let secondary: TestItem[] = [];
+  
+  if (trueFalse.length > 0 && shortAnswer.length === 0) {
+    secondaryType = 'true_false';
+    secondary = trueFalse;
+  } else if (shortAnswer.length > 0 && trueFalse.length === 0) {
+    secondaryType = 'short_answer';
+    secondary = shortAnswer;
+  } else if (trueFalse.length > 0 && shortAnswer.length > 0) {
+    // Edge case: both have items, pick the one with more
+    if (trueFalse.length >= shortAnswer.length) {
+      secondaryType = 'true_false';
+      secondary = trueFalse;
+    } else {
+      secondaryType = 'short_answer';
+      secondary = shortAnswer;
+    }
+  }
+
+  return { mcq, secondary, essay, secondaryType };
 }
 
 export default function GeneratedTestPage() {
@@ -33,6 +85,7 @@ export default function GeneratedTestPage() {
   const [test, setTest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAnswerKey, setShowAnswerKey] = useState(false);
+  const { checkAndRepair, isRepairing, repairResult } = useTestAutoRepair(testId);
 
   useEffect(() => {
     if (testId) {
@@ -43,7 +96,13 @@ export default function GeneratedTestPage() {
   const fetchTest = async () => {
     try {
       setLoading(true);
-      const data = await GeneratedTests.getById(testId!);
+      let data = await GeneratedTests.getById(testId!);
+      
+      // Auto-repair if incomplete
+      if (data) {
+        data = await checkAndRepair(data);
+      }
+      
       setTest(data);
     } catch (error) {
       console.error("Error fetching test:", error);
@@ -81,10 +140,13 @@ export default function GeneratedTestPage() {
     }
   };
 
-  if (loading) {
+  if (loading || isRepairing) {
     return (
       <div className="container mx-auto py-8 space-y-6">
         <Skeleton className="h-12 w-full" />
+        <div className="text-center text-muted-foreground">
+          {isRepairing ? 'Repairing incomplete test...' : 'Loading test...'}
+        </div>
         <Skeleton className="h-64 w-full" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -111,6 +173,27 @@ export default function GeneratedTestPage() {
 
   const items: TestItem[] = Array.isArray(test.items) ? test.items : [];
   const totalPoints = items.reduce((sum, item) => sum + (item.points || 1), 0);
+  const groupedQuestions = groupQuestionsByType(items);
+
+  // Calculate starting numbers for each section (only 3 sections: A, B, C)
+  const mcqStart = 1;
+  const secondaryStart = mcqStart + groupedQuestions.mcq.length;
+  const essayStart = secondaryStart + groupedQuestions.secondary.length;
+
+  // Determine Section B title and instruction based on secondary type
+  const getSectionBTitle = () => {
+    if (groupedQuestions.secondaryType === 'true_false') {
+      return "Section B: True or False";
+    }
+    return "Section B: Fill in the Blank / Short Answer";
+  };
+
+  const getSectionBInstruction = () => {
+    if (groupedQuestions.secondaryType === 'true_false') {
+      return "Write TRUE if the statement is correct, FALSE if incorrect.";
+    }
+    return "Write the correct answer on the blank provided.";
+  };
 
   return (
     <div className="container mx-auto py-8 space-y-6 print:py-4">
@@ -137,7 +220,7 @@ export default function GeneratedTestPage() {
       </div>
 
       {/* Exam Paper */}
-      <Card className="print:shadow-none print:border-none">
+      <Card className="print:shadow-none print:border-none" id="test-content">
         <CardHeader className="text-center border-b print:border-black">
           <div className="space-y-2">
             <h1 className="text-2xl font-bold">{test.title || "Examination"}</h1>
@@ -148,6 +231,28 @@ export default function GeneratedTestPage() {
               {test.exam_period && <Badge variant="secondary">{test.exam_period}</Badge>}
               {test.school_year && <Badge variant="secondary">SY {test.school_year}</Badge>}
             </div>
+            
+            {/* Student Info Section */}
+            <div className="mt-4 pt-4 border-t text-left grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Name:</span>
+                <span className="flex-1 border-b border-dashed border-muted-foreground"></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Date:</span>
+                <span className="flex-1 border-b border-dashed border-muted-foreground"></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Section:</span>
+                <span className="flex-1 border-b border-dashed border-muted-foreground"></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Score:</span>
+                <span className="flex-1 border-b border-dashed border-muted-foreground"></span>
+                <span>/ {totalPoints}</span>
+              </div>
+            </div>
+            
             <div className="text-sm text-muted-foreground flex justify-between items-center pt-2">
               <span>Total Points: {totalPoints}</span>
               {test.time_limit && <span>Time Limit: {test.time_limit} minutes</span>}
@@ -167,16 +272,40 @@ export default function GeneratedTestPage() {
 
           <Separator />
 
-          {/* Questions */}
-          <div className="space-y-6">
-            {items.map((item, index) => (
-              <QuestionItem
-                key={index}
-                item={item}
-                number={index + 1}
+          {/* Questions - 3 Sections: A (MCQ), B (T/F or Short Answer), C (Essay) */}
+          <div className="space-y-8">
+            {/* Section A: Multiple Choice Questions */}
+            {groupedQuestions.mcq.length > 0 && (
+              <QuestionSection
+                title="Section A: Multiple Choice Questions"
+                instruction="Choose the best answer from the options provided. Write the letter of your answer on the space provided."
+                items={groupedQuestions.mcq}
+                startNumber={mcqStart}
                 showAnswer={showAnswerKey}
               />
-            ))}
+            )}
+            
+            {/* Section B: True/False OR Short Answer (mutually exclusive) */}
+            {groupedQuestions.secondary.length > 0 && (
+              <QuestionSection
+                title={getSectionBTitle()}
+                instruction={getSectionBInstruction()}
+                items={groupedQuestions.secondary}
+                startNumber={secondaryStart}
+                showAnswer={showAnswerKey}
+              />
+            )}
+            
+            {/* Section C: Essay Questions */}
+            {groupedQuestions.essay.length > 0 && (
+              <QuestionSection
+                title="Section C: Essay Questions"
+                instruction="Answer the following questions in complete sentences. Provide clear and concise explanations."
+                items={groupedQuestions.essay}
+                startNumber={essayStart}
+                showAnswer={showAnswerKey}
+              />
+            )}
           </div>
         </CardContent>
       </Card>
@@ -191,19 +320,75 @@ export default function GeneratedTestPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {items.map((item, index) => (
-                <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded">
-                  <span className="font-semibold">{index + 1}.</span>
-                  <span className="text-primary font-medium">
-                    {formatAnswer(item)}
-                  </span>
-                </div>
-              ))}
+            <div className="space-y-4">
+              {groupedQuestions.mcq.length > 0 && (
+                <AnswerKeySection title="Multiple Choice" items={groupedQuestions.mcq} startNumber={mcqStart} />
+              )}
+              {groupedQuestions.secondary.length > 0 && (
+                <AnswerKeySection 
+                  title={groupedQuestions.secondaryType === 'true_false' ? 'True/False' : 'Short Answer'} 
+                  items={groupedQuestions.secondary} 
+                  startNumber={secondaryStart} 
+                />
+              )}
+              {groupedQuestions.essay.length > 0 && (
+                <AnswerKeySection title="Essay" items={groupedQuestions.essay} startNumber={essayStart} />
+              )}
             </div>
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function QuestionSection({ 
+  title, 
+  instruction, 
+  items, 
+  startNumber, 
+  showAnswer 
+}: { 
+  title: string; 
+  instruction: string; 
+  items: TestItem[]; 
+  startNumber: number; 
+  showAnswer: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="border-b pb-2">
+        <h2 className="text-lg font-bold">{title}</h2>
+        <p className="text-sm text-muted-foreground italic">{instruction}</p>
+      </div>
+      <div className="space-y-4">
+        {items.map((item, index) => (
+          <QuestionItem
+            key={index}
+            item={item}
+            number={startNumber + index}
+            showAnswer={showAnswer}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AnswerKeySection({ title, items, startNumber }: { title: string; items: TestItem[]; startNumber: number }) {
+  return (
+    <div>
+      <h3 className="font-semibold mb-2">{title}</h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
+        {items.map((item, index) => (
+          <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded text-sm">
+            <span className="font-semibold">{startNumber + index}.</span>
+            <span className="text-primary font-medium">
+              {formatAnswer(item)}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -223,16 +408,40 @@ function QuestionItem({ item, number, showAnswer }: { item: TestItem; number: nu
   };
 
   const questionText = item.question_text || item.question || '';
-  const questionType = item.question_type || item.type || '';
-  const options = item.choices || item.options || [];
+  const questionType = (item.question_type || item.type || '').toLowerCase();
   const correctAnswer = item.correct_answer ?? item.correctAnswer;
+  
+  // Handle MCQ choices - can be object {A, B, C, D} or array
+  const getMCQOptions = (): { key: string; text: string }[] => {
+    const choices = item.choices || item.options;
+    if (!choices) return [];
+    
+    // If it's an object with A, B, C, D keys
+    if (typeof choices === 'object' && !Array.isArray(choices)) {
+      return ['A', 'B', 'C', 'D']
+        .filter(key => choices[key])
+        .map(key => ({ key, text: choices[key] as string }));
+    }
+    
+    // If it's an array
+    if (Array.isArray(choices)) {
+      return choices.map((text, idx) => ({
+        key: String.fromCharCode(65 + idx),
+        text: String(text)
+      }));
+    }
+    
+    return [];
+  };
+
+  const mcqOptions = getMCQOptions();
 
   return (
     <div className="border rounded-lg p-4 space-y-3 print:break-inside-avoid">
       {/* Question Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 flex-1">
-          <span className="font-bold text-lg">{number}.</span>
+          <span className="font-bold text-lg min-w-[30px]">{number}.</span>
           <div className="flex-1">
             <p className="text-sm leading-relaxed">{questionText}</p>
           </div>
@@ -252,14 +461,17 @@ function QuestionItem({ item, number, showAnswer }: { item: TestItem; number: nu
       </div>
 
       {/* Question Content based on type */}
-      <div className="ml-6">
-        {(questionType === "mcq" || questionType === "multiple-choice") && options.length > 0 && (
+      <div className="ml-8">
+        {/* MCQ with A, B, C, D options */}
+        {(questionType === "mcq" || questionType === "multiple-choice" || questionType === "multiple_choice") && mcqOptions.length > 0 && (
           <div className="space-y-2">
-            {options.map((option, idx) => {
-              const isCorrect = correctAnswer === idx || correctAnswer === String.fromCharCode(65 + idx);
+            {mcqOptions.map((option) => {
+              const isCorrect = 
+                correctAnswer === option.key || 
+                correctAnswer === option.key.toLowerCase();
               return (
                 <div
-                  key={idx}
+                  key={option.key}
                   className={`flex items-start gap-2 p-2 rounded ${
                     showAnswer && isCorrect
                       ? "bg-green-50 border border-green-300"
@@ -267,23 +479,22 @@ function QuestionItem({ item, number, showAnswer }: { item: TestItem; number: nu
                   }`}
                 >
                   <span className="font-medium min-w-[24px]">
-                    {String.fromCharCode(65 + idx)}.
+                    {option.key}.
                   </span>
-                  <span className="text-sm">{option}</span>
+                  <span className="text-sm">{option.text}</span>
                 </div>
               );
             })}
           </div>
         )}
 
-        {(questionType === "true_false" || questionType === "true-false") && (
+        {(questionType === "true_false" || questionType === "true-false" || questionType === "truefalse") && (
           <div className="space-y-2">
             {["True", "False"].map((option, idx) => {
+              const normalizedAnswer = String(correctAnswer).toLowerCase();
               const isCorrect =
-                (correctAnswer === "true" && option === "True") ||
-                (correctAnswer === "false" && option === "False") ||
-                (correctAnswer === "True" && option === "True") ||
-                (correctAnswer === "False" && option === "False") ||
+                (normalizedAnswer === "true" && option === "True") ||
+                (normalizedAnswer === "false" && option === "False") ||
                 correctAnswer === idx;
               return (
                 <div
@@ -302,9 +513,9 @@ function QuestionItem({ item, number, showAnswer }: { item: TestItem; number: nu
           </div>
         )}
 
-        {(questionType === "short_answer" || questionType === "fill-blank") && (
-          <div className="border-b-2 border-dashed border-muted-foreground/30 py-2">
-            {showAnswer && (
+        {(questionType === "short_answer" || questionType === "fill-blank" || questionType === "fill_blank" || questionType === "identification") && (
+          <div className="border-b-2 border-dashed border-muted-foreground/30 py-4">
+            {showAnswer && correctAnswer && (
               <span className="text-primary font-medium">
                 Answer: {correctAnswer}
               </span>
@@ -314,14 +525,14 @@ function QuestionItem({ item, number, showAnswer }: { item: TestItem; number: nu
 
         {questionType === "essay" && (
           <div className="space-y-2">
-            <div className="border rounded p-4 min-h-[100px] bg-muted/10">
+            <div className="border rounded p-4 min-h-[120px] bg-muted/10">
               <p className="text-xs text-muted-foreground italic">
                 Write your answer here...
               </p>
             </div>
             {showAnswer && correctAnswer && (
-              <div className="text-sm text-muted-foreground">
-                <strong>Key Points:</strong> {correctAnswer}
+              <div className="text-sm text-muted-foreground bg-green-50 p-3 rounded">
+                <strong>Key Points/Sample Answer:</strong> {correctAnswer}
               </div>
             )}
           </div>
@@ -336,7 +547,7 @@ function QuestionItem({ item, number, showAnswer }: { item: TestItem; number: nu
 
       {/* Metadata footer */}
       {(item.topic || item.bloom_level) && (
-        <div className="flex gap-2 text-xs text-muted-foreground ml-6 print:hidden">
+        <div className="flex gap-2 text-xs text-muted-foreground ml-8 print:hidden">
           {item.topic && <span>Topic: {item.topic}</span>}
           {item.bloom_level && <span>• Bloom: {item.bloom_level}</span>}
         </div>
@@ -346,15 +557,29 @@ function QuestionItem({ item, number, showAnswer }: { item: TestItem; number: nu
 }
 
 function formatAnswer(item: TestItem): string {
-  const questionType = item.question_type || item.type || '';
+  const questionType = (item.question_type || item.type || '').toLowerCase();
   const correctAnswer = item.correct_answer ?? item.correctAnswer;
   
-  if ((questionType === "mcq" || questionType === "multiple-choice") && typeof correctAnswer === "number") {
-    return String.fromCharCode(65 + correctAnswer);
+  // MCQ: correct_answer is A, B, C, or D (or 0-3 index)
+  if (questionType === "mcq" || questionType === "multiple-choice" || questionType === "multiple_choice") {
+    // If it's a letter, return it directly
+    if (typeof correctAnswer === 'string' && ['A', 'B', 'C', 'D', 'a', 'b', 'c', 'd'].includes(correctAnswer)) {
+      return correctAnswer.toUpperCase();
+    }
+    // If it's a number index, convert to letter
+    if (typeof correctAnswer === "number" && correctAnswer >= 0 && correctAnswer <= 3) {
+      return String.fromCharCode(65 + correctAnswer);
+    }
+    return String(correctAnswer || 'A');
   }
-  if (questionType === "true_false" || questionType === "true-false") {
-    if (correctAnswer === "true" || correctAnswer === "True" || correctAnswer === 0) return "True";
-    if (correctAnswer === "false" || correctAnswer === "False" || correctAnswer === 1) return "False";
+  
+  if (questionType === "true_false" || questionType === "true-false" || questionType === "truefalse") {
+    const normalizedAnswer = String(correctAnswer).toLowerCase();
+    if (normalizedAnswer === "true" || correctAnswer === 0) return "True";
+    if (normalizedAnswer === "false" || correctAnswer === 1) return "False";
+    return String(correctAnswer);
   }
+  
   return String(correctAnswer || "N/A");
 }
+
