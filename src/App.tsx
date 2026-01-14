@@ -65,6 +65,7 @@ const App = () => {
                         <Route path="bulk-import" element={<BulkImportPage />} />
                         <Route path="users" element={<UserManagement />} />
                         <Route path="analytics" element={<AdminAnalytics />} />
+                        <Route path="generate-test" element={<IntelligentTestGenerator />} />
                         <Route path="ai-logs" element={<AILogs />} />
                         <Route path="quality" element={<Quality />} />
                         <Route path="test-assembly" element={<TestAssembly />} />

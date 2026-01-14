@@ -11,12 +11,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Brain,
-  Upload
+  Upload,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-// Cleaned up admin menu - removed unused features
+// Cleaned up admin menu - with AI Test Generator moved from Teacher
 const adminMenuItems = [
   { 
     title: "Dashboard", 
@@ -41,6 +42,12 @@ const adminMenuItems = [
     href: "/admin/bulk-import", 
     icon: Upload,
     description: "Import questions" 
+  },
+  { 
+    title: "AI Test Generator", 
+    href: "/admin/generate-test", 
+    icon: Sparkles,
+    description: "Generate tests" 
   },
   { 
     title: "System Analytics", 
