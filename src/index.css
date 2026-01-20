@@ -122,3 +122,305 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* ========================================
+   PRINT STYLESHEET - Academic Exam Format
+   ======================================== */
+@media print {
+  /* Hide all non-exam elements */
+  body > *:not(.print-exam-container),
+  header,
+  nav,
+  aside,
+  footer,
+  .sidebar,
+  .no-print,
+  [data-sidebar],
+  [role="navigation"],
+  button,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Reset for print */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+    font-family: "Times New Roman", Times, serif !important;
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Main exam container */
+  .print-exam-container {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0.75in 1in !important;
+    background: white !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Exam Header */
+  .exam-header {
+    text-align: center !important;
+    margin-bottom: 24pt !important;
+    padding-bottom: 12pt !important;
+    border-bottom: 2pt solid black !important;
+  }
+
+  .exam-header .institution-name {
+    font-size: 14pt !important;
+    font-weight: bold !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1pt !important;
+    margin-bottom: 6pt !important;
+  }
+
+  .exam-header .exam-title {
+    font-size: 16pt !important;
+    font-weight: bold !important;
+    margin: 12pt 0 !important;
+  }
+
+  .exam-header .exam-meta {
+    font-size: 11pt !important;
+    display: flex !important;
+    justify-content: center !important;
+    gap: 24pt !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* Student Info Section */
+  .student-info-section {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12pt 48pt !important;
+    margin: 18pt 0 24pt 0 !important;
+    padding: 12pt 0 !important;
+    border-top: 1pt solid black !important;
+    border-bottom: 1pt solid black !important;
+  }
+
+  .student-info-field {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 8pt !important;
+    font-size: 11pt !important;
+  }
+
+  .student-info-field .field-label {
+    font-weight: bold !important;
+    white-space: nowrap !important;
+  }
+
+  .student-info-field .field-line {
+    flex: 1 !important;
+    border-bottom: 1pt solid black !important;
+    min-width: 120pt !important;
+    height: 14pt !important;
+  }
+
+  /* Exam Summary */
+  .exam-summary {
+    display: flex !important;
+    justify-content: space-between !important;
+    font-size: 10pt !important;
+    margin-bottom: 18pt !important;
+    padding: 6pt 12pt !important;
+    background: #f5f5f5 !important;
+    border: 1pt solid #ccc !important;
+  }
+
+  /* General Instructions */
+  .general-instructions {
+    margin-bottom: 24pt !important;
+    padding: 12pt !important;
+    border: 1pt solid black !important;
+    background: #fafafa !important;
+  }
+
+  .general-instructions h3 {
+    font-size: 11pt !important;
+    font-weight: bold !important;
+    margin: 0 0 6pt 0 !important;
+    text-transform: uppercase !important;
+  }
+
+  .general-instructions p {
+    font-size: 11pt !important;
+    margin: 0 !important;
+    text-align: justify !important;
+  }
+
+  /* Section Headers */
+  .exam-section {
+    margin-top: 24pt !important;
+    page-break-inside: avoid !important;
+  }
+
+  .section-header {
+    margin-bottom: 12pt !important;
+    padding-bottom: 6pt !important;
+    border-bottom: 1.5pt solid black !important;
+  }
+
+  .section-header h2 {
+    font-size: 13pt !important;
+    font-weight: bold !important;
+    margin: 0 !important;
+    text-transform: uppercase !important;
+  }
+
+  .section-header .section-points {
+    font-size: 10pt !important;
+    font-weight: normal !important;
+    float: right !important;
+  }
+
+  .section-header .section-instruction {
+    font-size: 10pt !important;
+    font-style: italic !important;
+    margin-top: 4pt !important;
+    text-align: justify !important;
+  }
+
+  /* Question Items */
+  .exam-question {
+    margin-bottom: 18pt !important;
+    page-break-inside: avoid !important;
+  }
+
+  .question-number {
+    font-weight: bold !important;
+    min-width: 24pt !important;
+    display: inline-block !important;
+  }
+
+  .question-text {
+    text-align: justify !important;
+    margin-left: 24pt !important;
+    margin-bottom: 8pt !important;
+  }
+
+  /* MCQ Options */
+  .mcq-options {
+    margin-left: 36pt !important;
+  }
+
+  .mcq-option {
+    margin-bottom: 6pt !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 8pt !important;
+  }
+
+  .mcq-option .option-letter {
+    font-weight: bold !important;
+    min-width: 18pt !important;
+  }
+
+  .mcq-option .option-text {
+    flex: 1 !important;
+  }
+
+  /* Answer blank for MCQ */
+  .answer-blank {
+    display: inline-block !important;
+    width: 36pt !important;
+    border-bottom: 1pt solid black !important;
+    margin-right: 12pt !important;
+  }
+
+  /* True/False styling */
+  .tf-options {
+    margin-left: 36pt !important;
+    display: flex !important;
+    gap: 24pt !important;
+  }
+
+  .tf-option {
+    padding: 4pt 12pt !important;
+    border: 1pt solid black !important;
+  }
+
+  /* Essay answer space */
+  .essay-answer-space {
+    margin-left: 24pt !important;
+    margin-top: 12pt !important;
+  }
+
+  .essay-lines {
+    border-bottom: 1pt solid #999 !important;
+    height: 24pt !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Short answer / Fill in blank */
+  .short-answer-line {
+    display: inline-block !important;
+    width: 200pt !important;
+    border-bottom: 1pt solid black !important;
+    margin-left: 12pt !important;
+  }
+
+  /* Answer Key */
+  .answer-key-section {
+    page-break-before: always !important;
+    margin-top: 0 !important;
+  }
+
+  .answer-key-section h2 {
+    font-size: 14pt !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    margin-bottom: 18pt !important;
+    padding-bottom: 12pt !important;
+    border-bottom: 2pt solid black !important;
+  }
+
+  .answer-key-grid {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 8pt !important;
+  }
+
+  .answer-key-item {
+    display: flex !important;
+    gap: 6pt !important;
+    font-size: 11pt !important;
+    padding: 4pt 8pt !important;
+    border: 1pt solid #ccc !important;
+  }
+
+  .answer-key-item .key-number {
+    font-weight: bold !important;
+  }
+
+  .answer-key-item .key-answer {
+    font-weight: bold !important;
+    color: #000 !important;
+  }
+
+  /* Page breaks */
+  .page-break {
+    page-break-before: always !important;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid !important;
+  }
+
+  /* Footer for each page */
+  @page {
+    size: letter;
+    margin: 0.75in 1in;
+  }
+}

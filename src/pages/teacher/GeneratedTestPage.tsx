@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePDFExport } from "@/hooks/usePDFExport";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTestAutoRepair } from "@/hooks/useTestAutoRepair";
+import { ExamPrintTemplate } from "@/components/print/ExamPrintTemplate";
 
 interface TestItem {
   question_text?: string;
@@ -195,7 +196,12 @@ export default function GeneratedTestPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 space-y-6 print:py-4">
+    <>
+      {/* Print-only exam template - hidden on screen, shown only when printing */}
+      <ExamPrintTemplate test={test} showAnswerKey={showAnswerKey} />
+      
+      {/* Screen UI - hidden when printing */}
+      <div className="container mx-auto py-8 space-y-6 print:hidden">
       {/* Action Buttons - Hidden when printing */}
       <div className="flex items-center justify-between print:hidden">
         <Button variant="outline" onClick={handleBack}>
@@ -334,7 +340,8 @@ export default function GeneratedTestPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 
