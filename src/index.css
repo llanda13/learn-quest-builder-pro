@@ -130,6 +130,11 @@ All colors MUST be HSL.
   }
 }
 
+/* Print exam container is hidden on screen and shown only for print */
+.print-exam-only {
+  display: none;
+}
+
 /* ========================================
    PRINT STYLESHEET - Academic Exam Format
    ======================================== */
