@@ -201,9 +201,9 @@ export default function GeneratedTestPage() {
       <ExamPrintTemplate test={test} showAnswerKey={showAnswerKey} />
       
       {/* Screen UI - hidden when printing */}
-      <div className="container mx-auto py-8 space-y-6 print:hidden">
-      {/* Action Buttons - Hidden when printing */}
-      <div className="flex items-center justify-between print:hidden">
+      <div className="container mx-auto py-8 space-y-6 screen-only">
+      {/* Action Buttons */}
+      <div className="flex items-center justify-between">
         <Button variant="outline" onClick={handleBack}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to My Tests
