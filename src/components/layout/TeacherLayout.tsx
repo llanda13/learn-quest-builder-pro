@@ -82,11 +82,12 @@ export function TeacherLayout({ children }: TeacherLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Sidebar - Fixed position */}
+    <div className="min-h-screen bg-background flex" data-sidebar-provider="true">
+      {/* Sidebar - Fixed position - Hidden when printing */}
       <div 
+        data-sidebar="true"
         className={cn(
-          "fixed top-0 left-0 flex flex-col h-screen bg-card border-r border-border transition-all duration-300 z-50",
+          "fixed top-0 left-0 flex flex-col h-screen bg-card border-r border-border transition-all duration-300 z-50 screen-only",
           collapsed ? "w-16" : "w-64"
         )}
       >
@@ -197,7 +198,7 @@ export function TeacherLayout({ children }: TeacherLayoutProps) {
 
       {/* Main Content - with margin to account for fixed sidebar */}
       <main className={cn(
-        "flex-1 overflow-auto transition-all duration-300",
+        "flex-1 overflow-auto transition-all duration-300 print:ml-0",
         collapsed ? "ml-16" : "ml-64"
       )}>
         {children}

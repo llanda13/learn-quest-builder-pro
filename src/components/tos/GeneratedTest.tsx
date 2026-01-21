@@ -93,7 +93,7 @@ export function GeneratedTest({ tosData, testQuestions, onBack }: GeneratedTestP
       <ExamPrintTemplate test={printTestData} showAnswerKey={false} />
       
       {/* Screen UI - hidden when printing */}
-      <div className="space-y-6 print:hidden">
+      <div className="space-y-6 screen-only">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

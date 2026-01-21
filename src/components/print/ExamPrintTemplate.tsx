@@ -106,7 +106,7 @@ export function ExamPrintTemplate({ test, showAnswerKey = false }: ExamPrintTemp
   };
 
   return (
-    <div className="print-exam-container hidden print:block">
+    <div className="print-exam-only hidden print:block" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
       {/* Exam Header */}
       <div className="exam-header">
         {test.course && <div className="institution-name">{test.course}</div>}
