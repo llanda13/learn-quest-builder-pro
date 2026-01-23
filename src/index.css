@@ -153,14 +153,28 @@ All colors MUST be HSL.
     color: black !important;
     font-family: "Times New Roman", Times, serif !important;
     font-size: 12pt !important;
-    line-height: 1.25 !important;
+    line-height: 1.5 !important;
+    text-align: justify !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Kill any default margins that can inflate spacing in print */
-  h1, h2, h3, h4, p {
-    margin: 0 !important;
+  /* Consistent typography for print */
+  .print-exam-only {
+    font-family: "Times New Roman", Times, serif !important;
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+    text-align: justify !important;
+  }
+
+  /* Controlled margins for headings/paragraphs in print */
+  .print-exam-only h1, 
+  .print-exam-only h2, 
+  .print-exam-only h3, 
+  .print-exam-only h4, 
+  .print-exam-only p {
+    margin: 0 0 6pt 0 !important;
+    line-height: 1.5 !important;
   }
 
   /* Avoid common "first element" margin-collapse surprises */
