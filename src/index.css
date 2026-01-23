@@ -167,7 +167,6 @@ All colors MUST be HSL.
   .sidebar,
   .no-print,
   [data-sidebar],
-  [data-sidebar-provider],
   [role="navigation"] {
     display: none !important;
   }
