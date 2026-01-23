@@ -153,9 +153,19 @@ All colors MUST be HSL.
     color: black !important;
     font-family: "Times New Roman", Times, serif !important;
     font-size: 12pt !important;
-    line-height: 1.5 !important;
+    line-height: 1.25 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Kill any default margins that can inflate spacing in print */
+  h1, h2, h3, h4, p {
+    margin: 0 !important;
+  }
+
+  /* Avoid common "first element" margin-collapse surprises */
+  .print-exam-only > *:first-child {
+    margin-top: 0 !important;
   }
 
   /* Hide screen-only UI elements */
@@ -277,14 +287,23 @@ All colors MUST be HSL.
 
   /* Section Headers */
   .print-exam-only .exam-section {
-    margin-top: 12pt !important;
-    page-break-inside: avoid !important;
+    /* Smaller gap before each section */
+    margin-top: 8pt !important;
+    /* IMPORTANT: allow sections to split across pages.
+       Keeping the entire section unbroken causes large blank gaps/near-blank pages. */
+    page-break-inside: auto !important;
+    break-inside: auto !important;
   }
 
   .print-exam-only .section-header {
     margin-bottom: 8pt !important;
     padding-bottom: 4pt !important;
     border-bottom: 1.5pt solid black !important;
+    /* Keep header with at least the first question */
+    page-break-after: avoid !important;
+    break-after: avoid-page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
   }
 
   .print-exam-only .section-header h2 {
