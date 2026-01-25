@@ -276,9 +276,16 @@ export const usePDFExport = () => {
           const questionType = (question.question_type || question.type || '').toLowerCase();
           
           let answer = '';
-          if ((questionType === 'mcq' || questionType === 'multiple-choice' || questionType === 'multiple_choice') && typeof correctAnswer === 'number') {
-            answer = String.fromCharCode(65 + correctAnswer);
-          } else if (questionType === 'true_false' || questionType === 'true-false') {
+          if (questionType === 'mcq' || questionType === 'multiple-choice' || questionType === 'multiple_choice') {
+            // Handle both numeric index (0, 1, 2...) and letter keys (A, B, C...)
+            if (typeof correctAnswer === 'number') {
+              answer = String.fromCharCode(65 + correctAnswer);
+            } else if (typeof correctAnswer === 'string' && /^[A-Da-d]$/.test(correctAnswer)) {
+              answer = correctAnswer.toUpperCase();
+            } else {
+              answer = String(correctAnswer).substring(0, 50);
+            }
+          } else if (questionType === 'true_false' || questionType === 'true-false' || questionType === 'truefalse') {
             answer = String(correctAnswer).toLowerCase() === 'true' ? 'True' : 'False';
           } else if (correctAnswer) {
             answer = String(correctAnswer).substring(0, 50) + (String(correctAnswer).length > 50 ? '...' : '');
@@ -410,7 +417,31 @@ function addQuestion(
   // Get question text - handle both field naming conventions
   const questionText = question.question_text || question.question || 'Question text not available';
   const questionType = (question.question_type || question.type || '').toLowerCase();
-  const options = question.choices || question.options || [];
+  const rawChoices = question.choices || question.options;
+  
+  // Normalize choices to array of { key, text } for consistent rendering
+  const getMCQOptions = (): { key: string; text: string }[] => {
+    if (!rawChoices) return [];
+    
+    // Handle object format: { A: "text", B: "text", ... }
+    if (typeof rawChoices === 'object' && !Array.isArray(rawChoices)) {
+      return ['A', 'B', 'C', 'D', 'E', 'F']
+        .filter(key => rawChoices[key])
+        .map(key => ({ key, text: String(rawChoices[key]) }));
+    }
+    
+    // Handle array format: ["option1", "option2", ...]
+    if (Array.isArray(rawChoices)) {
+      return rawChoices.map((text, idx) => ({
+        key: String.fromCharCode(65 + idx),
+        text: typeof text === 'string' ? text : String(text)
+      }));
+    }
+    
+    return [];
+  };
+  
+  const mcqOptions = getMCQOptions();
 
   // Question number and text
   pdf.setFontSize(10);
@@ -423,17 +454,15 @@ function addQuestion(
   yPosition += questionLines.length * lineHeight;
 
   // Add options for multiple choice
-  if ((questionType === 'mcq' || questionType === 'multiple-choice' || questionType === 'multiple_choice') && Array.isArray(options) && options.length > 0) {
+  if ((questionType === 'mcq' || questionType === 'multiple-choice' || questionType === 'multiple_choice') && mcqOptions.length > 0) {
     yPosition += 3;
-    options.forEach((option: string, optIndex: number) => {
+    mcqOptions.forEach((option) => {
       if (yPosition > pageHeight - 20) {
         pdf.addPage();
         yPosition = margin;
       }
       
-      const optionLetter = String.fromCharCode(65 + optIndex);
-      const optionText = typeof option === 'string' ? option : String(option);
-      const optionLines = pdf.splitTextToSize(`${optionLetter}. ${optionText}`, pageWidth - margin * 2 - 15);
+      const optionLines = pdf.splitTextToSize(`${option.key}. ${option.text}`, pageWidth - margin * 2 - 15);
       pdf.text(optionLines, margin + 15, yPosition);
       yPosition += optionLines.length * lineHeight;
     });
