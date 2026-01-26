@@ -44,10 +44,10 @@ const teacherMenuItems = [
     description: "Professional exports" 
   },
   { 
-    title: "Test History", 
-    href: "/teacher/history", 
+    title: "TOS History", 
+    href: "/teacher/tos-history", 
     icon: Clock,
-    description: "Past questionnaires" 
+    description: "Saved specifications" 
   },
   { 
     title: "Reports", 
