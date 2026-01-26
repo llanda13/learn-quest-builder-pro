@@ -143,13 +143,13 @@ export default function TeacherDashboard() {
         </Card>
 
         {/* Redesigned TOS Management Card - Focus on Templates */}
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => navigate("/teacher/tos")}>
+        <Card className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">TOS Templates</CardTitle>
-            <Layers className="h-4 w-4 text-muted-foreground" />
+            <Layers className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalTOS || 0}</div>
+            <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{stats?.totalTOS || 0}</div>
             <p className="text-xs text-muted-foreground">Saved specifications</p>
             <div className="mt-3 flex gap-2">
               <Button 
@@ -170,7 +170,7 @@ export default function TeacherDashboard() {
                 className="text-xs h-7"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate("/teacher/tos");
+                  navigate("/teacher/tos-history");
                 }}
               >
                 Reuse Template
@@ -256,7 +256,7 @@ export default function TeacherDashboard() {
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => navigate("/teacher/history")}
+              onClick={() => navigate("/teacher/my-tests")}
             >
               View All
             </Button>
