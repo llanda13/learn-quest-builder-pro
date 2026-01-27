@@ -72,6 +72,7 @@ export default function TOSHistory() {
 
   const handleReuseTemplate = async (tos: TOSEntry) => {
     // Navigate to TOS Builder with template data pre-filled
+    // The toast will be shown by TOSBuilder after data is successfully applied
     navigate('/teacher/tos', { 
       state: { 
         templateData: {
@@ -81,18 +82,15 @@ export default function TOSHistory() {
           topics: tos.topics,
           distribution: tos.distribution,
           total_items: tos.total_items,
-          // Don't copy exam-specific data
+          prepared_by: '',
+          noted_by: '',
+          // Don't copy exam-specific data so teacher can set new values
           year_section: '',
           exam_period: '',
           school_year: ''
         },
         isReusing: true
       }
-    });
-    
-    toast({
-      title: 'Template Loaded',
-      description: 'TOS template has been loaded. Update the details for your new exam.',
     });
   };
 
