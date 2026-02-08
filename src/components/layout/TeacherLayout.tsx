@@ -12,8 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
-  BookOpen,
-  Target
+  BookOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,12 +35,6 @@ const teacherMenuItems = [
     href: "/teacher/my-tests", 
     icon: BookOpen,
     description: "View generated tests" 
-  },
-  { 
-    title: "Export & Print", 
-    href: "/teacher/export", 
-    icon: FileText,
-    description: "Professional exports" 
   },
   { 
     title: "TOS History", 
