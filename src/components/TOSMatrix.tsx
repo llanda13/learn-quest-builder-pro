@@ -74,7 +74,7 @@ export const TOSMatrix = ({ data }: TOSMatrixProps) => {
   };
 
   const handlePrint = () => {
-    PDFExporter.printElement('tos-matrix-export', `TOS Matrix - ${data.description}`);
+    PDFExporter.printElement('tos-matrix-export', `TOS Matrix - ${data.description}`, true);
   };
 
   // Calculate actual matrix total for validation display
@@ -95,7 +95,7 @@ export const TOSMatrix = ({ data }: TOSMatrixProps) => {
       </div>
 
       {/* TOS Matrix Display */}
-      <Card id="tos-matrix-export" className="print:shadow-none print:border-none">
+      <Card id="tos-matrix-export" className="print-tos-landscape print:shadow-none print:border-none">
         <CardHeader className="text-center border-b">
           <div className="space-y-2">
             <h1 className="text-xl font-bold">AGUSAN DEL SUR STATE COLLEGE OF AGRICULTURE AND TECHNOLOGY</h1>
