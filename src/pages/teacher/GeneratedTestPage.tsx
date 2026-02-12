@@ -299,13 +299,14 @@ export default function GeneratedTestPage() {
               />
             )}
             
-            {groupedQuestions.essay.length > 0 && (
+          {groupedQuestions.essay.length > 0 && (
               <QuestionSection
                 title="Section C: Essay Questions"
                 instruction="Answer the following questions in complete sentences. Provide clear and concise explanations."
                 items={groupedQuestions.essay}
                 startNumber={essayStart}
                 showAnswer={showAnswerKey}
+                isEssaySection
               />
             )}
           </div>
@@ -333,8 +334,8 @@ export default function GeneratedTestPage() {
                   startNumber={secondaryStart} 
                 />
               )}
-              {groupedQuestions.essay.length > 0 && (
-                <AnswerKeySection title="Essay" items={groupedQuestions.essay} startNumber={essayStart} />
+            {groupedQuestions.essay.length > 0 && (
+                <AnswerKeySection title="Essay" items={groupedQuestions.essay} startNumber={essayStart} isEssaySection />
               )}
             </div>
           </CardContent>
@@ -345,18 +346,38 @@ export default function GeneratedTestPage() {
   );
 }
 
+function getEssayDisplayNumber(
+  essayIndex: number, 
+  essayItems: TestItem[], 
+  sectionStartNumber: number
+): string {
+  // Each essay's points value = number of item slots it occupies
+  let rangeStart = sectionStartNumber;
+  for (let i = 0; i < essayIndex; i++) {
+    rangeStart += (essayItems[i].points || 5);
+  }
+  const currentPoints = essayItems[essayIndex].points || 5;
+  if (currentPoints > 1) {
+    const rangeEnd = rangeStart + currentPoints - 1;
+    return `${rangeStart}–${rangeEnd}`;
+  }
+  return `${rangeStart}`;
+}
+
 function QuestionSection({ 
   title, 
   instruction, 
   items, 
   startNumber, 
-  showAnswer 
+  showAnswer,
+  isEssaySection = false
 }: { 
   title: string; 
   instruction: string; 
   items: TestItem[]; 
   startNumber: number; 
   showAnswer: boolean;
+  isEssaySection?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -365,32 +386,63 @@ function QuestionSection({
         <p className="text-sm text-muted-foreground italic">{instruction}</p>
       </div>
       <div className="space-y-4">
-        {items.map((item, index) => (
-          <QuestionItem
-            key={index}
-            item={item}
-            number={startNumber + index}
-            showAnswer={showAnswer}
-          />
-        ))}
+        {items.map((item, index) => {
+          const displayNumber = isEssaySection 
+            ? getEssayDisplayNumber(index, items, startNumber)
+            : `${startNumber + index}`;
+          return (
+            <QuestionItem
+              key={index}
+              item={item}
+              displayNumber={displayNumber}
+              number={startNumber + index}
+              showAnswer={showAnswer}
+            />
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function AnswerKeySection({ title, items, startNumber }: { title: string; items: TestItem[]; startNumber: number }) {
+function AnswerKeySection({ title, items, startNumber, isEssaySection = false }: { title: string; items: TestItem[]; startNumber: number; isEssaySection?: boolean }) {
+  if (isEssaySection) {
+    return (
+      <div>
+        <h3 className="font-semibold mb-2">{title}</h3>
+        <div className="space-y-4">
+          {items.map((item, index) => {
+            const displayNum = getEssayDisplayNumber(index, items, startNumber);
+            const answer = formatAnswer(item);
+            return (
+              <div key={index} className="p-3 bg-muted rounded">
+                <div className="font-semibold mb-1">{displayNum}.</div>
+                <div className="text-sm text-primary whitespace-pre-wrap leading-relaxed ml-4">
+                  {answer}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h3 className="font-semibold mb-2">{title}</h3>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
-        {items.map((item, index) => (
-          <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded text-sm">
-            <span className="font-semibold">{startNumber + index}.</span>
-            <span className="text-primary font-medium">
-              {formatAnswer(item)}
-            </span>
-          </div>
-        ))}
+        {items.map((item, index) => {
+          const displayNum = `${startNumber + index}`;
+          return (
+            <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded text-sm">
+              <span className="font-semibold">{displayNum}.</span>
+              <span className="text-primary font-medium">
+                {formatAnswer(item)}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -402,7 +454,7 @@ function formatAnswer(item: TestItem): string {
   return String(answer);
 }
 
-function QuestionItem({ item, number, showAnswer }: { item: TestItem; number: number; showAnswer: boolean }) {
+function QuestionItem({ item, number, displayNumber, showAnswer }: { item: TestItem; number: number; displayNumber?: string; showAnswer: boolean }) {
   const getDifficultyColor = (difficulty?: string) => {
     switch (difficulty?.toLowerCase()) {
       case "easy":
@@ -447,7 +499,7 @@ function QuestionItem({ item, number, showAnswer }: { item: TestItem; number: nu
       {/* Question Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 flex-1">
-          <span className="font-bold text-lg min-w-[30px]">{number}.</span>
+          <span className="font-bold text-lg min-w-[30px]">{displayNumber || number}.</span>
           <div className="flex-1">
             <p className="text-sm leading-relaxed">{questionText}</p>
           </div>
