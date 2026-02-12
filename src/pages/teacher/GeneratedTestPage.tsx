@@ -307,6 +307,7 @@ export default function GeneratedTestPage() {
                 startNumber={essayStart}
                 showAnswer={showAnswerKey}
                 isEssaySection
+                totalTestItems={items.length}
               />
             )}
           </div>
@@ -335,7 +336,7 @@ export default function GeneratedTestPage() {
                 />
               )}
             {groupedQuestions.essay.length > 0 && (
-                <AnswerKeySection title="Essay" items={groupedQuestions.essay} startNumber={essayStart} isEssaySection />
+                <AnswerKeySection title="Essay" items={groupedQuestions.essay} startNumber={essayStart} isEssaySection totalTestItems={items.length} />
               )}
             </div>
           </CardContent>
@@ -349,19 +350,25 @@ export default function GeneratedTestPage() {
 function getEssayDisplayNumber(
   essayIndex: number, 
   essayItems: TestItem[], 
-  sectionStartNumber: number
+  sectionStartNumber: number,
+  totalTestItems: number
 ): string {
-  // Each essay's points value = number of item slots it occupies
-  let rangeStart = sectionStartNumber;
-  for (let i = 0; i < essayIndex; i++) {
-    rangeStart += (essayItems[i].points || 5);
-  }
-  const currentPoints = essayItems[essayIndex].points || 5;
-  if (currentPoints > 1) {
-    const rangeEnd = rangeStart + currentPoints - 1;
+  // Calculate the total item slots in the essay section
+  const sectionItemCount = totalTestItems - sectionStartNumber + 1;
+  const essayCount = essayItems.length;
+
+  if (essayCount > 0 && sectionItemCount > essayCount) {
+    // Distribute item slots evenly across essays
+    const itemsPerEssay = Math.floor(sectionItemCount / essayCount);
+    const rangeStart = sectionStartNumber + (essayIndex * itemsPerEssay);
+    const rangeEnd = essayIndex === essayCount - 1
+      ? totalTestItems
+      : rangeStart + itemsPerEssay - 1;
     return `${rangeStart}–${rangeEnd}`;
   }
-  return `${rangeStart}`;
+
+  // Single-item essays or 1:1 mapping
+  return `${sectionStartNumber + essayIndex}`;
 }
 
 function QuestionSection({ 
@@ -370,7 +377,8 @@ function QuestionSection({
   items, 
   startNumber, 
   showAnswer,
-  isEssaySection = false
+  isEssaySection = false,
+  totalTestItems = 0
 }: { 
   title: string; 
   instruction: string; 
@@ -378,6 +386,7 @@ function QuestionSection({
   startNumber: number; 
   showAnswer: boolean;
   isEssaySection?: boolean;
+  totalTestItems?: number;
 }) {
   return (
     <div className="space-y-4">
@@ -388,7 +397,7 @@ function QuestionSection({
       <div className="space-y-4">
         {items.map((item, index) => {
           const displayNumber = isEssaySection 
-            ? getEssayDisplayNumber(index, items, startNumber)
+            ? getEssayDisplayNumber(index, items, startNumber, totalTestItems)
             : `${startNumber + index}`;
           return (
             <QuestionItem
@@ -405,14 +414,14 @@ function QuestionSection({
   );
 }
 
-function AnswerKeySection({ title, items, startNumber, isEssaySection = false }: { title: string; items: TestItem[]; startNumber: number; isEssaySection?: boolean }) {
+function AnswerKeySection({ title, items, startNumber, isEssaySection = false, totalTestItems = 0 }: { title: string; items: TestItem[]; startNumber: number; isEssaySection?: boolean; totalTestItems?: number }) {
   if (isEssaySection) {
     return (
       <div>
         <h3 className="font-semibold mb-2">{title}</h3>
         <div className="space-y-4">
           {items.map((item, index) => {
-            const displayNum = getEssayDisplayNumber(index, items, startNumber);
+            const displayNum = getEssayDisplayNumber(index, items, startNumber, totalTestItems);
             const answer = formatAnswer(item);
             return (
               <div key={index} className="p-3 bg-muted rounded">
