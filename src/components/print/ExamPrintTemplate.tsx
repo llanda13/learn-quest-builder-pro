@@ -212,14 +212,22 @@ export function ExamPrintTemplate({ test, showAnswerKey = false }: ExamPrintTemp
               Answer the following questions in complete sentences. Provide clear and concise explanations. Use the space provided for your answer.
             </p>
           </div>
-          {groupedQuestions.essay.map((item, index) => (
-            <EssayQuestion
-              key={index}
-              item={item}
-              number={essayStart + index}
-              showAnswer={showAnswerKey}
-            />
-          ))}
+          {groupedQuestions.essay.map((item, index) => {
+            const essayDisplayNum = getEssayRangeNumber(
+              index, 
+              groupedQuestions.essay.length, 
+              essayStart, 
+              items.length
+            );
+            return (
+              <EssayQuestion
+                key={index}
+                item={item}
+                displayNumber={essayDisplayNum}
+                showAnswer={showAnswerKey}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -249,12 +257,23 @@ export function ExamPrintTemplate({ test, showAnswerKey = false }: ExamPrintTemp
               <h3 style={{ fontSize: '12pt', fontWeight: 'bold', marginBottom: '12pt' }}>
                 Section C: Essay (Sample Answers)
               </h3>
-              {groupedQuestions.essay.map((item, index) => (
-                <div key={index} style={{ marginBottom: '12pt' }}>
-                  <span style={{ fontWeight: 'bold' }}>{essayStart + index}. </span>
-                  <span>{item.correct_answer ?? item.correctAnswer ?? 'Answers may vary'}</span>
-                </div>
-              ))}
+              {groupedQuestions.essay.map((item, index) => {
+                const essayDisplayNum = getEssayRangeNumber(
+                  index,
+                  groupedQuestions.essay.length,
+                  essayStart,
+                  items.length
+                );
+                const essayAnswer = String(item.correct_answer ?? item.correctAnswer ?? 'Answers may vary');
+                return (
+                  <div key={index} className="answer-key-essay-item" style={{ marginBottom: '16pt', pageBreakInside: 'avoid' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '4pt' }}>{essayDisplayNum}.</div>
+                    <div style={{ marginLeft: '24pt', textAlign: 'left', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
+                      {essayAnswer}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -296,7 +315,7 @@ function MCQQuestion({ item, number, showAnswer }: { item: TestItem; number: num
           {showAnswer ? correctAnswer : ''}
         </span>
         <span className="question-number">{number}.</span>
-        <span style={{ marginLeft: '6pt', textAlign: 'justify' }}>{questionText}</span>
+        <span style={{ marginLeft: '6pt', textAlign: 'left' }}>{questionText}</span>
       </div>
       <div className="mcq-options">
         {options.map((option) => (
@@ -331,25 +350,43 @@ function SecondaryQuestion({
           {showAnswer ? String(correctAnswer) : ''}
         </span>
         <span className="question-number">{number}.</span>
-        <span style={{ marginLeft: '6pt', textAlign: 'justify', flex: 1 }}>{questionText}</span>
+        <span style={{ marginLeft: '6pt', textAlign: 'left', flex: 1 }}>{questionText}</span>
       </div>
     </div>
   );
 }
 
-function EssayQuestion({ item, number, showAnswer }: { item: TestItem; number: number; showAnswer: boolean }) {
+function getEssayRangeNumber(
+  essayIndex: number,
+  essayCount: number,
+  sectionStartNumber: number,
+  totalItemCount: number
+): string {
+  const sectionItemCount = totalItemCount - sectionStartNumber + 1;
+  
+  if (essayCount > 0 && sectionItemCount > essayCount) {
+    const itemsPerEssay = Math.floor(sectionItemCount / essayCount);
+    const rangeStart = sectionStartNumber + (essayIndex * itemsPerEssay);
+    const rangeEnd = essayIndex === essayCount - 1 
+      ? totalItemCount 
+      : rangeStart + itemsPerEssay - 1;
+    return `${rangeStart}–${rangeEnd}`;
+  }
+  return `${sectionStartNumber + essayIndex}`;
+}
+
+function EssayQuestion({ item, displayNumber, showAnswer }: { item: TestItem; displayNumber: string; showAnswer: boolean }) {
   const questionText = item.question_text || item.question || '';
   const points = item.points || 1;
   const correctAnswer = item.correct_answer ?? item.correctAnswer;
 
-  // Calculate number of lines based on points (more points = more space)
   const lineCount = Math.max(8, points * 2);
 
   return (
     <div className="exam-question" style={{ marginBottom: '24pt' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '12pt' }}>
-        <span className="question-number">{number}.</span>
-        <span style={{ marginLeft: '6pt', textAlign: 'justify', flex: 1 }}>{questionText}</span>
+        <span className="question-number">{displayNumber}.</span>
+        <span style={{ marginLeft: '6pt', textAlign: 'left', flex: 1 }}>{questionText}</span>
         <span style={{ fontSize: '10pt', whiteSpace: 'nowrap', marginLeft: '12pt' }}>
           ({points} {points === 1 ? 'point' : 'points'})
         </span>
@@ -371,19 +408,27 @@ function EssayQuestion({ item, number, showAnswer }: { item: TestItem; number: n
 }
 
 function AnswerKeyGrid({ title, items, startNumber }: { title: string; items: TestItem[]; startNumber: number }) {
+  // Format T/F answers consistently
+  const formatGridAnswer = (item: TestItem): string => {
+    const answer = item.correct_answer ?? item.correctAnswer ?? '—';
+    const type = (item.question_type || item.type || '').toLowerCase();
+    if (type === 'true_false' || type === 'true-false' || type === 'truefalse') {
+      const val = String(answer).toLowerCase();
+      return (val === 'true' || val === 't') ? 'T' : 'F';
+    }
+    return String(answer);
+  };
+
   return (
     <div style={{ marginBottom: '18pt' }}>
       <h3 style={{ fontSize: '11pt', fontWeight: 'bold', marginBottom: '8pt' }}>{title}</h3>
       <div className="answer-key-grid">
-        {items.map((item, index) => {
-          const answer = item.correct_answer ?? item.correctAnswer ?? '—';
-          return (
-            <div key={index} className="answer-key-item">
-              <span className="key-number">{startNumber + index}.</span>
-              <span className="key-answer">{String(answer)}</span>
-            </div>
-          );
-        })}
+        {items.map((item, index) => (
+          <div key={index} className="answer-key-item">
+            <span className="key-number">{startNumber + index}.</span>
+            <span className="key-answer">{formatGridAnswer(item)}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
