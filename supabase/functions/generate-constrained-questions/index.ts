@@ -375,9 +375,109 @@ function buildLegacyPrompt(
   count: number,
   isMCQ: boolean
 ): string {
+  return buildLegacyPromptMultiType(topic, bloomLevel, knowledgeDimension, difficulty, count, isMCQ ? 'mcq' : 'essay');
+}
+
+/**
+ * Build legacy prompt supporting all question types
+ */
+function buildLegacyPromptMultiType(
+  topic: string,
+  bloomLevel: string,
+  knowledgeDimension: string,
+  difficulty: string,
+  count: number,
+  questionType: string
+): string {
   const isHigherOrder = HIGHER_ORDER_BLOOMS.includes(bloomLevel);
   const defaultAnswerType = getDefaultAnswerType(bloomLevel);
   const answerConstraint = buildAnswerConstraint(defaultAnswerType, bloomLevel);
+  
+  let formatSection = '';
+  
+  switch (questionType) {
+    case 'true_false':
+      formatSection = `=== TRUE/FALSE FORMAT ===
+- Each question is a statement that is either TRUE or FALSE
+- Statements must be unambiguous — clearly true or clearly false
+- Avoid double negatives and trick wording
+- Approximately half should be TRUE and half FALSE
+- correct_answer must be exactly "True" or "False"
+
+Return JSON:
+{
+  "questions": [
+    {
+      "text": "Statement text here.",
+      "correct_answer": "True",
+      "answer": "True — explanation of why",
+      "answer_type": "${defaultAnswerType}"
+    }
+  ]
+}`;
+      break;
+    case 'fill_blank':
+    case 'short_answer':
+      formatSection = `=== FILL-IN-THE-BLANK FORMAT ===
+- Each question contains a blank indicated by "__________"
+- The blank should replace ONE key term or short phrase
+- The correct answer must be 1-3 words, clear and specific
+- Avoid blanks that could have multiple valid answers
+
+Return JSON:
+{
+  "questions": [
+    {
+      "text": "The process of __________ ensures quality in ${topic}.",
+      "correct_answer": "validation",
+      "answer": "validation — because it verifies correctness",
+      "answer_type": "${defaultAnswerType}"
+    }
+  ]
+}`;
+      break;
+    case 'essay':
+      formatSection = `=== ESSAY FORMAT ===
+- Open-ended question requiring extended response
+- Should require ${defaultAnswerType} type response
+- Include rubric points for grading
+
+Return JSON:
+{
+  "questions": [
+    {
+      "text": "Essay question text",
+      "rubric_points": ["Point 1", "Point 2", "Point 3"],
+      "correct_answer": "Model answer outline",
+      "answer": "Model answer using ${defaultAnswerType} structure",
+      "answer_type": "${defaultAnswerType}"
+    }
+  ]
+}`;
+      break;
+    default: // mcq
+      formatSection = `=== MCQ REQUIREMENTS ===
+- 4 choices (A, B, C, D)
+- One correct answer
+- Plausible distractors
+- Correct answer must demonstrate ${defaultAnswerType} structure
+
+Return JSON:
+{
+  "questions": [
+    {
+      "text": "Question text",
+      "choices": {"A": "...", "B": "...", "C": "...", "D": "..."},
+      "correct_answer": "A",
+      "answer": "Model answer following ${defaultAnswerType} structure",
+      "answer_type": "${defaultAnswerType}",
+      "bloom_alignment_note": "Alignment with ${bloomLevel}",
+      "knowledge_alignment_note": "Targets ${knowledgeDimension} knowledge"
+    }
+  ]
+}`;
+      break;
+  }
   
   return `Generate ${count} high-quality exam question(s).
 
@@ -409,27 +509,7 @@ These patterns are FORBIDDEN. Your answer must demonstrate actual ${bloomLevel.t
 VIOLATION = REJECTION AND REGENERATION.
 ` : ''}
 
-${isMCQ ? `=== MCQ REQUIREMENTS ===
-- 4 choices (A, B, C, D)
-- One correct answer
-- Plausible distractors
-- Correct answer must demonstrate ${defaultAnswerType} structure` : `=== ESSAY REQUIREMENTS ===
-- Open-ended question requiring ${defaultAnswerType} response`}
-
-Return JSON:
-{
-  "questions": [
-    {
-      "text": "Question text",
-      ${isMCQ ? `"choices": {"A": "...", "B": "...", "C": "...", "D": "..."},
-      "correct_answer": "A",` : `"rubric_points": ["Point 1", "Point 2"],`}
-      "answer": "Model answer following ${defaultAnswerType} structure",
-      "answer_type": "${defaultAnswerType}",
-      "bloom_alignment_note": "Alignment with ${bloomLevel}",
-      "knowledge_alignment_note": "Targets ${knowledgeDimension} knowledge"
-    }
-  ]
-}`;
+${formatSection}`;
 }
 
 /**
@@ -508,16 +588,30 @@ serve(async (req) => {
       );
     }
 
+    // Try Lovable AI Gateway first, fall back to OpenAI
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      console.error('OpenAI API key not configured');
+    
+    const apiUrl = lovableApiKey 
+      ? 'https://ai.gateway.lovable.dev/v1/chat/completions'
+      : 'https://api.openai.com/v1/chat/completions';
+    const apiKey = lovableApiKey || openAIApiKey;
+    const modelName = lovableApiKey ? 'google/gemini-2.5-flash' : 'gpt-4o-mini';
+    
+    if (!apiKey) {
+      console.error('No AI API key configured (checked LOVABLE_API_KEY and OPENAI_API_KEY)');
       return new Response(
-        JSON.stringify({ error: 'Service temporarily unavailable' }),
+        JSON.stringify({ error: 'AI service not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log(`Using AI provider: ${lovableApiKey ? 'Lovable Gateway' : 'OpenAI'}, model: ${modelName}`);
+
     const isMCQ = question_type === 'mcq';
+    const isTrueFalse = question_type === 'true_false';
+    const isFillBlank = question_type === 'fill_blank' || question_type === 'short_answer';
+    const isEssay = question_type === 'essay';
     const isIntentDriven = pipeline_mode === 'intent_driven' && Array.isArray(intents) && intents.length > 0;
     
     // Initialize registry from snapshot or create empty
@@ -531,7 +625,7 @@ serve(async (req) => {
     // Build prompt based on pipeline mode
     const prompt = isIntentDriven
       ? buildIntentDrivenPrompt(topic, bloom_level, knowledge_dimension, difficulty, intents, registry, isMCQ)
-      : buildLegacyPrompt(topic, bloom_level, knowledge_dimension, difficulty, count, isMCQ);
+      : buildLegacyPromptMultiType(topic, bloom_level, knowledge_dimension, difficulty, count, question_type);
 
     const systemPrompt = isIntentDriven
       ? `You are an expert educational content RENDERER implementing a constrained question generation pipeline. You do NOT make creative decisions. All structural decisions (concept, operation, answer type) have been made for you. Your ONLY job is to render questions that exactly match the assigned constraints. If you cannot satisfy a constraint, you MUST return an error rather than deviate.`
@@ -545,29 +639,29 @@ serve(async (req) => {
       });
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: modelName,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: prompt }
         ],
         response_format: { type: "json_object" },
-        temperature: isIntentDriven ? 0.2 : 0.4, // Even lower temp for strict compliance
+        temperature: isIntentDriven ? 0.2 : 0.4,
         max_tokens: 3000
       }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('OpenAI API error:', error);
+      console.error('AI API error:', error);
       return new Response(
-        JSON.stringify({ error: 'Failed to generate questions from AI service' }),
+        JSON.stringify({ error: 'Failed to generate questions from AI service', details: error }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
