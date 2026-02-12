@@ -13,6 +13,8 @@ import {
   scaledFormatSections 
 } from "@/types/examFormats";
 import type { TOSCriteria } from "./testGenerationService";
+import { QuestionUniquenessStore, createQuestionFingerprint, extractConcept } from "./questionUniquenessChecker";
+import type { AnswerType, KnowledgeDimension } from "@/types/knowledge";
 
 export interface FormatAwareTestConfig {
   format: ExamFormat;
@@ -91,6 +93,10 @@ export async function generateFormatAwareTest(
   const answerKey: any[] = [];
   let globalQuestionNumber = 1;
 
+  // Session-level deduplication store — shared across ALL sections
+  const uniquenessStore = new QuestionUniquenessStore();
+  const allQuestionTexts: string[] = []; // For text similarity checks
+
   for (const section of scaledSections) {
     const sectionCriteria = sectionAssignments.get(section.id) || [];
     const sectionItemCount = section.endNumber - section.startNumber + 1;
@@ -108,7 +114,9 @@ export async function generateFormatAwareTest(
       sectionCriteria,
       actualQuestionCount,
       globalQuestionNumber,
-      user.id
+      user.id,
+      uniquenessStore,
+      allQuestionTexts
     );
 
     // Calculate points correctly for essays (essayCount * pointsPerQuestion) vs regular (count * 1)
@@ -290,12 +298,51 @@ function distributeCriteriaToSections(
 /**
  * Generate questions for a specific section with the required question type
  */
+/**
+ * Lightweight text similarity using normalized token overlap (Jaccard-like)
+ */
+function computeTextSimilarity(text1: string, text2: string): number {
+  const tokenize = (t: string) => new Set(
+    t.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 2)
+  );
+  const set1 = tokenize(text1);
+  const set2 = tokenize(text2);
+  if (set1.size === 0 || set2.size === 0) return 0;
+  let intersection = 0;
+  for (const token of set1) {
+    if (set2.has(token)) intersection++;
+  }
+  return intersection / Math.max(set1.size, set2.size);
+}
+
+/**
+ * Check if a question text is too similar to any existing question
+ */
+function isDuplicateByText(
+  questionText: string,
+  existingTexts: string[],
+  threshold: number = 0.7
+): boolean {
+  for (const existing of existingTexts) {
+    if (computeTextSimilarity(questionText, existing) >= threshold) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Generate questions for a specific section with the required question type
+ * Now enforces cross-section deduplication via uniquenessStore and text similarity
+ */
 async function generateSectionQuestions(
   section: ExamSection,
   criteria: TOSCriteria[],
   targetCount: number,
   startNumber: number,
-  userId: string
+  userId: string,
+  uniquenessStore: QuestionUniquenessStore,
+  allQuestionTexts: string[]
 ): Promise<any[]> {
   const questions: any[] = [];
   
@@ -311,14 +358,23 @@ async function generateSectionQuestions(
       .eq('question_type', dbQuestionType)
       .ilike('topic', `%${criterion.topic}%`)
       .order('used_count', { ascending: true })
-      .limit(criterion.count);
+      .limit(criterion.count * 3); // Fetch extra for dedup filtering
     
     if (bankQuestions && bankQuestions.length > 0) {
-      questions.push(...bankQuestions.slice(0, criterion.count));
+      for (const bq of bankQuestions) {
+        if (questions.length >= targetCount) break;
+        // Skip if text is too similar to already-selected questions
+        if (isDuplicateByText(bq.question_text, allQuestionTexts)) {
+          console.log(`   🔄 Skipping duplicate bank question: "${bq.question_text.substring(0, 60)}..."`);
+          continue;
+        }
+        questions.push(bq);
+        allQuestionTexts.push(bq.question_text);
+      }
     }
   }
   
-  // If we don't have enough, generate the rest
+  // If we don't have enough, generate the rest with dedup enforcement
   const remaining = targetCount - questions.length;
   if (remaining > 0) {
     console.log(`   🤖 Generating ${remaining} ${section.questionType} questions via AI...`);
@@ -327,7 +383,9 @@ async function generateSectionQuestions(
       section.questionType,
       criteria,
       remaining,
-      userId
+      userId,
+      uniquenessStore,
+      allQuestionTexts
     );
     
     questions.push(...generatedQuestions);
@@ -351,16 +409,110 @@ function mapQuestionTypeToDb(type: QuestionType): string {
 }
 
 /**
- * Generate questions of a specific type using templates
+ * Generate questions of a specific type using AI edge function, with template fallback
+ * Enforces deduplication: rejects near-duplicate AI outputs and retries
  */
 async function generateTypedQuestions(
+  questionType: QuestionType,
+  criteria: TOSCriteria[],
+  count: number,
+  userId: string,
+  uniquenessStore: QuestionUniquenessStore,
+  allQuestionTexts: string[]
+): Promise<any[]> {
+  const MAX_RETRIES = 2;
+  let attempt = 0;
+  const accepted: any[] = [];
+
+  while (accepted.length < count && attempt <= MAX_RETRIES) {
+    attempt++;
+    const needed = count - accepted.length;
+
+    try {
+      const aiQuestions = await generateTypedQuestionsViaAI(questionType, criteria, needed, userId);
+
+      for (const q of aiQuestions) {
+        if (accepted.length >= count) break;
+        const qText = q.question_text || q.text || '';
+
+        // Check text similarity against all existing questions
+        if (isDuplicateByText(qText, allQuestionTexts)) {
+          console.log(`   🔄 Rejected duplicate AI question (attempt ${attempt}): "${qText.substring(0, 60)}..."`);
+          continue;
+        }
+
+        // Check structural uniqueness via fingerprint store
+        const bloomForAnswer = mapBloomToAnswerType(q.bloom_level || criteria[0]?.bloom_level || 'Understanding');
+        const fp = createQuestionFingerprint(
+          qText,
+          q.topic || criteria[0]?.topic || '',
+          bloomForAnswer as AnswerType,
+          q.bloom_level || criteria[0]?.bloom_level || 'Understanding',
+          (q.knowledge_dimension || criteria[0]?.knowledge_dimension || 'conceptual') as KnowledgeDimension
+        );
+        const uniqueCheck = uniquenessStore.checkWithSuggestions(fp);
+        if (!uniqueCheck.unique) {
+          console.log(`   🔄 Rejected structurally redundant AI question: ${uniqueCheck.reason}`);
+          continue;
+        }
+
+        // Passed all checks — accept
+        uniquenessStore.register(fp);
+        allQuestionTexts.push(qText);
+        accepted.push(q);
+      }
+
+      if (accepted.length >= count) break;
+      console.log(`   ⚠️ After AI attempt ${attempt}: ${accepted.length}/${count} unique questions accepted`);
+    } catch (error) {
+      console.error(`   ❌ AI generation attempt ${attempt} failed:`, error);
+      break; // Don't retry on hard errors
+    }
+  }
+
+  // Only use template fallback if AI couldn't produce enough, with dedup
+  if (accepted.length < count) {
+    const remaining = count - accepted.length;
+    console.warn(`   ⚠️ AI produced ${accepted.length}/${count} unique questions after ${attempt} attempts. Filling ${remaining} with templates (deduplicated).`);
+    const templateQuestions = generateTypedQuestionsFromTemplates(questionType, criteria, remaining * 3, userId);
+
+    for (const tq of templateQuestions) {
+      if (accepted.length >= count) break;
+      const tText = tq.question_text || '';
+      if (isDuplicateByText(tText, allQuestionTexts)) continue;
+      allQuestionTexts.push(tText);
+      accepted.push(tq);
+    }
+  }
+
+  return accepted.slice(0, count);
+}
+
+/**
+ * Map bloom level to a default answer type for fingerprinting
+ */
+function mapBloomToAnswerType(bloomLevel: string): string {
+  const map: Record<string, string> = {
+    'Remembering': 'definition',
+    'Understanding': 'explanation',
+    'Applying': 'application',
+    'Analyzing': 'analysis',
+    'Evaluating': 'evaluation',
+    'Creating': 'design'
+  };
+  return map[bloomLevel] || 'explanation';
+}
+
+/**
+ * Generate questions via the AI edge function with proper question_type
+ */
+async function generateTypedQuestionsViaAI(
   questionType: QuestionType,
   criteria: TOSCriteria[],
   count: number,
   userId: string
 ): Promise<any[]> {
   const questions: any[] = [];
-  const letters = ['A', 'B', 'C', 'D'];
   
   // Distribute count across criteria
   const perCriteria = Math.ceil(count / Math.max(criteria.length, 1));
@@ -368,29 +520,130 @@ async function generateTypedQuestions(
   
   for (const criterion of criteria) {
     if (generated >= count) break;
+    const toGenerate = Math.min(perCriteria, count - generated);
     
+    // Map question type for the edge function
+    const edgeQuestionType = questionType === 'fill_blank' ? 'fill_blank' : questionType;
+    
+    const { data, error } = await supabase.functions.invoke('generate-constrained-questions', {
+      body: {
+        topic: criterion.topic,
+        bloom_level: criterion.bloom_level || 'Understanding',
+        knowledge_dimension: criterion.knowledge_dimension || 'conceptual',
+        difficulty: criterion.difficulty || 'Average',
+        count: toGenerate,
+        question_type: edgeQuestionType
+      }
+    });
+    
+    if (error) {
+      console.error(`   ❌ Edge function error for ${questionType}:`, error);
+      continue;
+    }
+    
+    const aiQuestions = data?.questions || [];
+    
+    for (const q of aiQuestions) {
+      if (generated >= count) break;
+      
+      const mapped = mapAIResponseToQuestion(q, questionType, criterion, userId);
+      questions.push(mapped);
+      generated++;
+    }
+  }
+  
+  return questions;
+}
+
+/**
+ * Map AI edge function response to our question format
+ */
+function mapAIResponseToQuestion(
+  aiQ: any,
+  questionType: QuestionType,
+  criterion: TOSCriteria,
+  userId: string
+): any {
+  const base = {
+    id: `gen-${questionType}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+    topic: criterion.topic,
+    bloom_level: criterion.bloom_level || aiQ.bloom_level,
+    difficulty: criterion.difficulty || aiQ.difficulty,
+    knowledge_dimension: criterion.knowledge_dimension || aiQ.knowledge_dimension || 'conceptual',
+    created_by: 'ai',
+    status: 'approved',
+    approved: true,
+    owner: userId,
+    ai_confidence_score: 0.85,
+    metadata: { generated_for_section: questionType, ai_generated: true }
+  };
+  
+  switch (questionType) {
+    case 'true_false':
+      return {
+        ...base,
+        question_type: 'true_false',
+        question_text: aiQ.text,
+        choices: { A: 'True', B: 'False' },
+        correct_answer: aiQ.correct_answer === 'True' || aiQ.correct_answer === 'true' ? 'True' : 'False'
+      };
+    case 'fill_blank':
+      return {
+        ...base,
+        question_type: 'short_answer',
+        question_text: aiQ.text,
+        correct_answer: aiQ.correct_answer || 'N/A'
+      };
+    case 'essay':
+      return {
+        ...base,
+        question_type: 'essay',
+        question_text: aiQ.text,
+        correct_answer: aiQ.correct_answer || aiQ.answer || 'See rubric',
+        points: 5,
+        metadata: {
+          ...base.metadata,
+          points: 5,
+          rubric_criteria: aiQ.rubric_points || []
+        }
+      };
+    default: // mcq
+      return {
+        ...base,
+        question_type: 'mcq',
+        question_text: aiQ.text,
+        choices: aiQ.choices || {},
+        correct_answer: aiQ.correct_answer || 'A'
+      };
+  }
+}
+
+/**
+ * Template-based fallback generation (no AI needed)
+ */
+function generateTypedQuestionsFromTemplates(
+  questionType: QuestionType,
+  criteria: TOSCriteria[],
+  count: number,
+  userId: string
+): any[] {
+  const questions: any[] = [];
+  const perCriteria = Math.ceil(count / Math.max(criteria.length, 1));
+  let generated = 0;
+  
+  for (const criterion of criteria) {
+    if (generated >= count) break;
     const toGenerate = Math.min(perCriteria, count - generated);
     
     for (let i = 0; i < toGenerate; i++) {
-      const question = generateTypedQuestion(
-        questionType,
-        criterion,
-        generated + i,
-        userId
-      );
+      const question = generateTypedQuestion(questionType, criterion, generated + i, userId);
       questions.push(question);
       generated++;
     }
   }
   
-  // If we still need more, generate from first criterion
   while (generated < count && criteria.length > 0) {
-    const question = generateTypedQuestion(
-      questionType,
-      criteria[0],
-      generated,
-      userId
-    );
+    const question = generateTypedQuestion(questionType, criteria[0], generated, userId);
     questions.push(question);
     generated++;
   }
