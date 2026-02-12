@@ -351,24 +351,21 @@ function getEssayDisplayNumber(
   essayIndex: number, 
   essayItems: TestItem[], 
   sectionStartNumber: number,
-  totalTestItems: number
+  _totalTestItems: number
 ): string {
-  // Calculate the total item slots in the essay section
-  const sectionItemCount = totalTestItems - sectionStartNumber + 1;
-  const essayCount = essayItems.length;
-
-  if (essayCount > 0 && sectionItemCount > essayCount) {
-    // Distribute item slots evenly across essays
-    const itemsPerEssay = Math.floor(sectionItemCount / essayCount);
-    const rangeStart = sectionStartNumber + (essayIndex * itemsPerEssay);
-    const rangeEnd = essayIndex === essayCount - 1
-      ? totalTestItems
-      : rangeStart + itemsPerEssay - 1;
+  // Use each essay's points to determine how many item slots it consumes
+  let rangeStart = sectionStartNumber;
+  for (let i = 0; i < essayIndex; i++) {
+    rangeStart += (essayItems[i].points || 1);
+  }
+  const currentPoints = essayItems[essayIndex].points || 1;
+  
+  if (currentPoints > 1) {
+    const rangeEnd = rangeStart + currentPoints - 1;
     return `${rangeStart}–${rangeEnd}`;
   }
-
-  // Single-item essays or 1:1 mapping
-  return `${sectionStartNumber + essayIndex}`;
+  
+  return `${rangeStart}`;
 }
 
 function QuestionSection({ 

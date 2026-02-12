@@ -215,9 +215,8 @@ export function ExamPrintTemplate({ test, showAnswerKey = false }: ExamPrintTemp
           {groupedQuestions.essay.map((item, index) => {
             const essayDisplayNum = getEssayRangeNumber(
               index, 
-              groupedQuestions.essay.length, 
-              essayStart, 
-              items.length
+              groupedQuestions.essay, 
+              essayStart
             );
             return (
               <EssayQuestion
@@ -260,9 +259,8 @@ export function ExamPrintTemplate({ test, showAnswerKey = false }: ExamPrintTemp
               {groupedQuestions.essay.map((item, index) => {
                 const essayDisplayNum = getEssayRangeNumber(
                   index,
-                  groupedQuestions.essay.length,
-                  essayStart,
-                  items.length
+                  groupedQuestions.essay,
+                  essayStart
                 );
                 const essayAnswer = String(item.correct_answer ?? item.correctAnswer ?? 'Answers may vary');
                 return (
@@ -358,21 +356,21 @@ function SecondaryQuestion({
 
 function getEssayRangeNumber(
   essayIndex: number,
-  essayCount: number,
-  sectionStartNumber: number,
-  totalItemCount: number
+  essayItems: TestItem[],
+  sectionStartNumber: number
 ): string {
-  const sectionItemCount = totalItemCount - sectionStartNumber + 1;
+  // Use each essay's points to determine how many item slots it consumes
+  let rangeStart = sectionStartNumber;
+  for (let i = 0; i < essayIndex; i++) {
+    rangeStart += (essayItems[i].points || 1);
+  }
+  const currentPoints = essayItems[essayIndex].points || 1;
   
-  if (essayCount > 0 && sectionItemCount > essayCount) {
-    const itemsPerEssay = Math.floor(sectionItemCount / essayCount);
-    const rangeStart = sectionStartNumber + (essayIndex * itemsPerEssay);
-    const rangeEnd = essayIndex === essayCount - 1 
-      ? totalItemCount 
-      : rangeStart + itemsPerEssay - 1;
+  if (currentPoints > 1) {
+    const rangeEnd = rangeStart + currentPoints - 1;
     return `${rangeStart}–${rangeEnd}`;
   }
-  return `${sectionStartNumber + essayIndex}`;
+  return `${rangeStart}`;
 }
 
 function EssayQuestion({ item, displayNumber, showAnswer }: { item: TestItem; displayNumber: string; showAnswer: boolean }) {

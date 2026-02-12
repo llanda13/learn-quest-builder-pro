@@ -38,20 +38,18 @@ function computeEssayRanges(items: TestItem[]): Record<number, string> {
 
   if (essayIndices.length === 0) return map;
 
-  const essayStart = essayIndices[0] + 1; // 1-based question number
-  const sectionItemCount = items.length - essayIndices[0];
-  const essayCount = essayIndices.length;
-
-  if (essayCount > 0 && sectionItemCount > essayCount) {
-    const itemsPerEssay = Math.floor(sectionItemCount / essayCount);
-    essayIndices.forEach((itemIdx, essayIdx) => {
-      const rangeStart = essayStart + (essayIdx * itemsPerEssay);
-      const rangeEnd = essayIdx === essayCount - 1
-        ? items.length
-        : rangeStart + itemsPerEssay - 1;
+  // Use each essay's points to determine range
+  let rangeStart = essayIndices[0] + 1; // 1-based question number
+  essayIndices.forEach((itemIdx) => {
+    const points = items[itemIdx].points || 1;
+    if (points > 1) {
+      const rangeEnd = rangeStart + points - 1;
       map[itemIdx] = `Q${rangeStart}–${rangeEnd}`;
-    });
-  }
+    } else {
+      map[itemIdx] = `Q${rangeStart}`;
+    }
+    rangeStart += points;
+  });
 
   return map;
 }
