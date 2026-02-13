@@ -183,24 +183,19 @@ export function ExamPrintView({ test, showAnswerKey = true }: ExamPrintViewProps
             const questionNum = item.question_number || section.startNumber;
             const questionType = normalizeQuestionType(item.question_type || item.type || section.questionType);
             
-            // For essay questions, format as range (e.g., "41–45." or "46–50.")
+            // For essay questions, format as range based on points
             const getEssayNumberRange = () => {
-              // Check if this is an essay section with essay grouping
               if (questionType === 'essay' && section.questionType === 'essay') {
-                const sectionItemCount = section.endNumber - section.startNumber + 1;
-                const essayCount = section.questions.length;
-                
-                if (essayCount > 0 && sectionItemCount > essayCount) {
-                  // Items are grouped into essays
-                  const itemsPerEssay = Math.floor(sectionItemCount / essayCount);
-                  const essayStart = section.startNumber + (qIdx * itemsPerEssay);
-                  const essayEnd = qIdx === essayCount - 1 
-                    ? section.endNumber 
-                    : essayStart + itemsPerEssay - 1;
-                  return `${essayStart}–${essayEnd}`;
+                const points = item.points || 1;
+                if (points > 1) {
+                  let rangeStart = section.startNumber;
+                  for (let i = 0; i < qIdx; i++) {
+                    rangeStart += (section.questions[i].points || 1);
+                  }
+                  const rangeEnd = rangeStart + points - 1;
+                  return `${rangeStart}–${rangeEnd}`;
                 }
               }
-              // Default: just show the question number
               return `${questionNum}`;
             };
             
@@ -441,19 +436,17 @@ function buildAnswerKey(sections: SectionGroup[]): { num: number; displayNum: st
         answer = 'See rubric';
       }
       
-      // Calculate display number - use range for essays
+      // Calculate display number - use range for essays based on points
       let displayNum = String(question.question_number || 0);
       if (qType === 'essay' && section.questionType === 'essay') {
-        const sectionItemCount = section.endNumber - section.startNumber + 1;
-        const essayCount = section.questions.length;
-        
-        if (essayCount > 0 && sectionItemCount > essayCount) {
-          const itemsPerEssay = Math.floor(sectionItemCount / essayCount);
-          const essayStart = section.startNumber + (qIdx * itemsPerEssay);
-          const essayEnd = qIdx === essayCount - 1 
-            ? section.endNumber 
-            : essayStart + itemsPerEssay - 1;
-          displayNum = `${essayStart}–${essayEnd}`;
+        const points = question.points || 1;
+        if (points > 1) {
+          let rangeStart = section.startNumber;
+          for (let i = 0; i < qIdx; i++) {
+            rangeStart += (section.questions[i].points || 1);
+          }
+          const rangeEnd = rangeStart + points - 1;
+          displayNum = `${rangeStart}–${rangeEnd}`;
         }
       }
       
