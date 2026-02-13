@@ -1,8 +1,9 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Printer, Download, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -42,8 +43,27 @@ interface TOSViewDialogProps {
 
 export function TOSViewDialog({ open, onOpenChange, tos }: TOSViewDialogProps) {
   const [exporting, setExporting] = useState(false);
+  const [institution, setInstitution] = useState<string>('');
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    async function fetchInstitution() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase
+          .from('profiles')
+          .select('institution')
+          .eq('id', user.id)
+          .single();
+        setInstitution(data?.institution || '');
+      } catch (err) {
+        console.error('Failed to fetch institution:', err);
+      }
+    }
+    if (open) fetchInstitution();
+  }, [open]);
 
   const topicRows = tos?.topics?.map(t => {
     const dist = tos.distribution?.[t.topic];
@@ -213,6 +233,11 @@ export function TOSViewDialog({ open, onOpenChange, tos }: TOSViewDialogProps) {
               lineHeight: 1.4,
             }}
           >
+            {/* Institution Name */}
+            <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13pt', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {institution || 'Institution Not Set'}
+            </div>
+
             {/* Title */}
             <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14pt', border: '2px solid #000', padding: '6px 0', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
               Two-Way Table of Specification
