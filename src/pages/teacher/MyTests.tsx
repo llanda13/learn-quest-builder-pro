@@ -68,7 +68,7 @@ export default function MyTests() {
     <div className="container mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">My Generated Tests</h1>
-        <Button onClick={() => navigate('/teacher/generate-test')}>
+        <Button onClick={() => navigate('/teacher/tos')}>
           Generate New Test
         </Button>
       </div>
@@ -80,7 +80,7 @@ export default function MyTests() {
             <p className="text-muted-foreground">No tests generated yet</p>
             <Button
               className="mt-4"
-              onClick={() => navigate('/teacher/generate-test')}
+              onClick={() => navigate('/teacher/tos')}
             >
               Create Your First Test
             </Button>
