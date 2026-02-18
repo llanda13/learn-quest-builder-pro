@@ -105,7 +105,7 @@ export default function BulkImport({
       'application/pdf': ['.pdf'],
     },
     multiple: false,
-    // Removed maxSize to allow unlimited file sizes
+    maxSize: 50 * 1024 * 1024, // 50MB limit
   });
 
   const previewCSV = (file: File) => {
@@ -756,7 +756,7 @@ export default function BulkImport({
                   Drag & drop a CSV or PDF file here, or click to select
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Supports .csv and .pdf files up to 10MB
+                  Supports .csv and .pdf files up to 50MB
                 </p>
               </div>
             )}

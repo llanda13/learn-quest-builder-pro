@@ -111,7 +111,7 @@ export default function TeacherDashboard() {
           <h1 className="text-3xl font-bold">Teacher Dashboard</h1>
           <p className="text-muted-foreground">Create and manage your tests</p>
         </div>
-        <Button onClick={() => navigate("/teacher/generate-test")} size="lg">
+        <Button onClick={() => navigate("/teacher/tos")} size="lg">
           <PlusCircle className="h-5 w-5 mr-2" />
           Generate New Test
         </Button>
