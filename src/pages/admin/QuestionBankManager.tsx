@@ -497,10 +497,10 @@ export default function QuestionBankManager() {
             <ScrollArea className="h-[calc(100vh-320px)]">
               <div className="space-y-2 pr-4">
                 {Object.entries(hierarchyData).map(([subject, topics]) => (
-                  <div key={subject} className="border rounded-lg overflow-hidden">
+                  <div key={subject} className="border border-border rounded-lg overflow-hidden">
                     <button
                       onClick={() => toggleSubject(subject)}
-                      className="w-full flex items-center gap-2 p-3 hover:bg-accent transition-colors text-left"
+                      className="w-full flex items-center gap-2 p-3 hover:bg-muted transition-colors text-left"
                     >
                       {expandedSubjects.has(subject) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       <span className="font-semibold flex-1">{subject}</span>
