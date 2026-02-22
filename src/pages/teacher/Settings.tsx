@@ -134,12 +134,13 @@ export default function Settings() {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
+      // Use signed URL for secure access (bucket is private)
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('exports')
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 86400); // 24 hour expiry
 
-      const avatarUrl = urlData.publicUrl;
+      if (signedUrlError) throw signedUrlError;
+      const avatarUrl = signedUrlData.signedUrl;
 
       // Update profile
       const { error: updateError } = await supabase

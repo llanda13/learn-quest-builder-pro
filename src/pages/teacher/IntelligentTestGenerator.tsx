@@ -111,8 +111,8 @@ export default function IntelligentTestGenerator() {
   const navigate = useNavigate();
 
   const handleGenerateTopics = async () => {
-    if (!subjectNumber.trim() || !subjectDescription.trim()) {
-      toast({ title: 'Error', description: 'Please enter both subject number and description.', variant: 'destructive' });
+    if (!subjectDescription.trim()) {
+      toast({ title: 'Error', description: 'Please enter a subject.', variant: 'destructive' });
       return;
     }
 
@@ -255,40 +255,30 @@ export default function IntelligentTestGenerator() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Wand2 className="h-6 w-6" />
-              AI Test Generator
+              Smart Question Builder
             </CardTitle>
             <CardDescription>Step 1: Enter subject details and generate topics</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Subject Number</Label>
-                <Input
-                  value={subjectNumber}
-                  onChange={(e) => setSubjectNumber(e.target.value)}
-                  placeholder="e.g., CS 101"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Subject Description</Label>
-                <Input
-                  value={subjectDescription}
-                  onChange={(e) => setSubjectDescription(e.target.value)}
-                  placeholder="e.g., Introduction to Computer Science"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Subject</Label>
+              <Input
+                value={subjectDescription}
+                onChange={(e) => setSubjectDescription(e.target.value)}
+                placeholder="e.g., Introduction to Computer Science"
+              />
             </div>
 
             <Button
               onClick={handleGenerateTopics}
-              disabled={generatingTopics || !subjectNumber.trim() || !subjectDescription.trim()}
+              disabled={generatingTopics || !subjectDescription.trim()}
               className="w-full"
               size="lg"
             >
               {generatingTopics ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating Topics...</>
               ) : (
-                <><Sparkles className="mr-2 h-4 w-4" /> Generate Topics</>
+                <><Sparkles className="mr-2 h-4 w-4" /> Submit</>
               )}
             </Button>
 

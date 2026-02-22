@@ -273,7 +273,7 @@ export default function QuestionBankManager() {
           <h1 className="text-3xl font-bold">Question Bank Manager</h1>
           <p className="text-muted-foreground">Full CRUD access to master question repository</p>
         </div>
-        <Button onClick={() => setIsCreating(true)}>
+        <Button onClick={() => setIsCreating(true)} size="lg">
           <Plus className="h-4 w-4 mr-2" />
           Add Question
         </Button>
@@ -427,7 +427,7 @@ export default function QuestionBankManager() {
                 const [f, d] = v.split('-') as [SortField, SortDir];
                 setSortField(f); setSortDir(d);
               }}>
-                <SelectTrigger className="w-44">
+                <SelectTrigger className="w-44 border-border bg-card text-foreground">
                   <ArrowUpDown className="h-3 w-3 mr-1" />
                   <SelectValue />
                 </SelectTrigger>
@@ -441,10 +441,11 @@ export default function QuestionBankManager() {
                 </SelectContent>
               </Select>
               <Button
-                variant={viewMode === 'hierarchy' ? 'default' : 'outline'}
+                variant={viewMode === 'hierarchy' ? 'default' : 'secondary'}
                 size="icon"
                 onClick={() => setViewMode(viewMode === 'list' ? 'hierarchy' : 'list')}
                 title="Toggle hierarchy view"
+                className="border border-border"
               >
                 <FolderTree className="h-4 w-4" />
               </Button>
