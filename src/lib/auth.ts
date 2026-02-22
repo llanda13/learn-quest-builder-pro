@@ -17,6 +17,7 @@ export interface AuthContextType {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -107,6 +108,23 @@ export const useAuthState = () => {
     await supabase.auth.signOut();
   };
 
+  const refreshProfile = async () => {
+    const currentUser = user || (await supabase.auth.getUser()).data.user;
+    if (!currentUser) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('id', currentUser.id)
+      .single();
+    if (data) {
+      setProfile({
+        ...data,
+        role: profile?.role || 'teacher',
+        created_at: profile?.created_at || new Date().toISOString()
+      });
+    }
+  };
+
   return {
     user,
     session,
@@ -114,6 +132,7 @@ export const useAuthState = () => {
     loading,
     signUp,
     signIn,
-    signOut
+    signOut,
+    refreshProfile
   };
 };

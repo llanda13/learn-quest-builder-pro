@@ -82,24 +82,24 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex">
-      {/* Sidebar - Fixed position */}
+    <div className="min-h-screen bg-background text-foreground flex">
+      {/* Sidebar - Fixed position with secondary (Vivid Purple) dark theme */}
       <div 
         className={cn(
-          "fixed top-0 left-0 flex flex-col h-screen bg-slate-900 border-r border-slate-800 transition-all duration-300 z-50",
+          "fixed top-0 left-0 flex flex-col h-screen bg-secondary border-r border-secondary/80 transition-all duration-300 z-50",
           collapsed ? "w-16" : "w-64"
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-800">
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
           {!collapsed && (
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <Brain className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <Brain className="w-4 h-4 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="font-bold text-lg text-slate-100">Admin Panel</h1>
-                <p className="text-xs text-slate-400">System Management</p>
+                <h1 className="font-bold text-lg text-secondary-foreground">Admin Panel</h1>
+                <p className="text-xs text-secondary-foreground/60">System Management</p>
               </div>
             </div>
           )}
@@ -107,7 +107,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             variant="ghost"
             size="icon"
             onClick={() => setCollapsed(!collapsed)}
-            className="shrink-0 text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+            className="shrink-0 text-secondary-foreground/60 hover:text-secondary-foreground hover:bg-white/10"
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </Button>
@@ -126,8 +126,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 group",
                   active 
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" 
-                    : "text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
+                    : "text-secondary-foreground/80 hover:bg-white/10 hover:text-secondary-foreground"
                 )}
               >
                 <Icon className="w-5 h-5 shrink-0" />
@@ -136,7 +136,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     <div className="font-medium">{item.title}</div>
                     <div className={cn(
                       "text-xs truncate",
-                      active ? "text-blue-100" : "text-slate-400"
+                      active ? "text-primary-foreground/80" : "text-secondary-foreground/50"
                     )}>
                       {item.description}
                     </div>
@@ -148,7 +148,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </nav>
 
         {/* Bottom Navigation */}
-        <nav className="p-2 space-y-1 border-t border-slate-800">
+        <nav className="p-2 space-y-1 border-t border-white/10">
           {bottomMenuItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -160,8 +160,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200",
                   active 
-                    ? "bg-blue-600 text-white" 
-                    : "text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                    ? "bg-primary text-primary-foreground" 
+                    : "text-secondary-foreground/80 hover:bg-white/10 hover:text-secondary-foreground"
                 )}
               >
                 <Icon className="w-5 h-5 shrink-0" />
@@ -172,7 +172,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 w-full text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 w-full text-secondary-foreground/80 hover:bg-white/10 hover:text-secondary-foreground"
           >
             <LogOut className="w-5 h-5 shrink-0" />
             {!collapsed && <div className="font-medium">Sign Out</div>}
@@ -181,14 +181,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* User Info */}
         {!collapsed && (
-          <div className="p-4 border-t border-slate-800">
+          <div className="p-4 border-t border-white/10">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
-                <Users className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
+                <Users className="w-4 h-4 text-accent-foreground" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-medium text-sm text-slate-100 truncate">{user?.email}</div>
-                <div className="text-xs text-slate-400">Administrator</div>
+                <div className="font-medium text-sm text-secondary-foreground truncate">{user?.email}</div>
+                <div className="text-xs text-secondary-foreground/60">Administrator</div>
               </div>
             </div>
           </div>
