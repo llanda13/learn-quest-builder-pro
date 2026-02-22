@@ -34,6 +34,19 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Auth check for all operations
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+    const anonClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } })
+    const token = authHeader.replace('Bearer ', '')
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token)
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    // Role check - teacher or admin for write ops, any auth for reads
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     
@@ -44,9 +57,6 @@ Deno.serve(async (req) => {
     const rubricId = pathParts[pathParts.length - 1]
 
     console.log(`${req.method} ${url.pathname}`)
-
-    // Get authorization header for user context
-    const authHeader = req.headers.get('Authorization')
 
     switch (req.method) {
       case 'GET': {
@@ -110,6 +120,11 @@ Deno.serve(async (req) => {
       }
 
       case 'POST': {
+        // Role check for write operations
+        const { data: postRole } = await supabase.rpc('get_user_role', { user_id: claimsData.claims.sub });
+        if (!postRole || !['admin', 'teacher'].includes(postRole)) {
+          return new Response(JSON.stringify({ error: 'Insufficient permissions' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
         const body: CreateRubricRequest = await req.json()
 
         if (!body.title || !body.criteria || body.criteria.length === 0) {
@@ -176,6 +191,11 @@ Deno.serve(async (req) => {
       }
 
       case 'PUT': {
+        // Role check for write operations
+        const { data: putRole } = await supabase.rpc('get_user_role', { user_id: claimsData.claims.sub });
+        if (!putRole || !['admin', 'teacher'].includes(putRole)) {
+          return new Response(JSON.stringify({ error: 'Insufficient permissions' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
         if (!rubricId || rubricId === 'rubrics') {
           return new Response(
             JSON.stringify({ error: 'Rubric ID required for update' }),
@@ -245,6 +265,11 @@ Deno.serve(async (req) => {
       }
 
       case 'DELETE': {
+        // Role check for write operations
+        const { data: delRole } = await supabase.rpc('get_user_role', { user_id: claimsData.claims.sub });
+        if (!delRole || !['admin', 'teacher'].includes(delRole)) {
+          return new Response(JSON.stringify({ error: 'Insufficient permissions' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
         if (!rubricId || rubricId === 'rubrics') {
           return new Response(
             JSON.stringify({ error: 'Rubric ID required for deletion' }),
