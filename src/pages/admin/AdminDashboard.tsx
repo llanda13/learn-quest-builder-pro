@@ -105,7 +105,7 @@ export default function AdminDashboard() {
 
         {/* Quick Actions - Cleaned up */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/question-bank")}>
+          <Card className="cursor-pointer hover:border-accent transition-colors" onClick={() => navigate("/admin/question-bank")}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5" />
@@ -115,7 +115,7 @@ export default function AdminDashboard() {
             </CardHeader>
           </Card>
 
-          <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/users")}>
+          <Card className="cursor-pointer hover:border-accent transition-colors" onClick={() => navigate("/admin/users")}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -125,7 +125,7 @@ export default function AdminDashboard() {
             </CardHeader>
           </Card>
 
-          <Card className="cursor-pointer hover:bg-accent" onClick={() => navigate("/admin/analytics")}>
+          <Card className="cursor-pointer hover:border-accent transition-colors" onClick={() => navigate("/admin/analytics")}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />

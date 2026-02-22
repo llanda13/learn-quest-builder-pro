@@ -82,7 +82,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-secondary/5 text-foreground flex">
+    <div className="min-h-screen text-foreground flex" style={{ backgroundColor: 'hsl(272 65% 96%)' }}>
       {/* Sidebar - Fixed position with white background */}
       <div 
         className={cn(
