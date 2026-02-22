@@ -82,24 +82,24 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
-      {/* Sidebar - Fixed position with secondary (Vivid Purple) dark theme */}
+    <div className="min-h-screen bg-secondary/5 text-foreground flex">
+      {/* Sidebar - Fixed position with white background */}
       <div 
         className={cn(
-          "fixed top-0 left-0 flex flex-col h-screen bg-secondary border-r border-secondary/80 transition-all duration-300 z-50",
+          "fixed top-0 left-0 flex flex-col h-screen bg-background border-r border-border transition-all duration-300 z-50 shadow-sm",
           collapsed ? "w-16" : "w-64"
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           {!collapsed && (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <Brain className="w-4 h-4 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="font-bold text-lg text-secondary-foreground">Admin Panel</h1>
-                <p className="text-xs text-secondary-foreground/60">System Management</p>
+                <h1 className="font-bold text-lg text-foreground">Admin Panel</h1>
+                <p className="text-xs text-muted-foreground">System Management</p>
               </div>
             </div>
           )}
@@ -107,7 +107,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             variant="ghost"
             size="icon"
             onClick={() => setCollapsed(!collapsed)}
-            className="shrink-0 text-secondary-foreground/60 hover:text-secondary-foreground hover:bg-white/10"
+            className="shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </Button>
@@ -127,7 +127,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 group",
                   active 
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
-                    : "text-secondary-foreground/80 hover:bg-white/10 hover:text-secondary-foreground"
+                    : "text-foreground/70 hover:bg-muted hover:text-foreground"
                 )}
               >
                 <Icon className="w-5 h-5 shrink-0" />
@@ -136,7 +136,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     <div className="font-medium">{item.title}</div>
                     <div className={cn(
                       "text-xs truncate",
-                      active ? "text-primary-foreground/80" : "text-secondary-foreground/50"
+                      active ? "text-primary-foreground/80" : "text-muted-foreground"
                     )}>
                       {item.description}
                     </div>
@@ -148,7 +148,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </nav>
 
         {/* Bottom Navigation */}
-        <nav className="p-2 space-y-1 border-t border-white/10">
+        <nav className="p-2 space-y-1 border-t border-border">
           {bottomMenuItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -161,7 +161,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200",
                   active 
                     ? "bg-primary text-primary-foreground" 
-                    : "text-secondary-foreground/80 hover:bg-white/10 hover:text-secondary-foreground"
+                    : "text-foreground/70 hover:bg-muted hover:text-foreground"
                 )}
               >
                 <Icon className="w-5 h-5 shrink-0" />
@@ -172,7 +172,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 w-full text-secondary-foreground/80 hover:bg-white/10 hover:text-secondary-foreground"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 w-full text-foreground/70 hover:bg-muted hover:text-foreground"
           >
             <LogOut className="w-5 h-5 shrink-0" />
             {!collapsed && <div className="font-medium">Sign Out</div>}
@@ -181,21 +181,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* User Info */}
         {!collapsed && (
-          <div className="p-4 border-t border-white/10">
+          <div className="p-4 border-t border-border">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
                 <Users className="w-4 h-4 text-accent-foreground" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-medium text-sm text-secondary-foreground truncate">{user?.email}</div>
-                <div className="text-xs text-secondary-foreground/60">Administrator</div>
+                <div className="font-medium text-sm text-foreground truncate">{user?.email}</div>
+                <div className="text-xs text-muted-foreground">Administrator</div>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Main Content - with margin to account for fixed sidebar */}
+      {/* Main Content - with margin to account for fixed sidebar, subtle purple tint */}
       <main className={cn(
         "flex-1 overflow-auto transition-all duration-300",
         collapsed ? "ml-16" : "ml-64"
