@@ -280,7 +280,31 @@ All colors MUST be HSL.
     background: white !important;
   }
 
-  /* Exam Header */
+  /* ISO Document Header */
+  .print-exam-only .iso-doc-header {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 12pt !important;
+    margin-bottom: 8pt !important;
+  }
+
+  .print-exam-only .iso-doc-header img {
+    width: 72pt !important;
+    height: 72pt !important;
+    object-fit: contain !important;
+  }
+
+  .print-exam-only .iso-doc-header table {
+    border-collapse: collapse !important;
+    font-size: 8.5pt !important;
+  }
+
+  .print-exam-only .iso-doc-header table td {
+    border: 1px solid #000 !important;
+    padding: 2px 6px !important;
+  }
+
+  /* Exam Header (legacy fallback) */
   .print-exam-only .exam-header {
     text-align: center !important;
     margin-bottom: 8pt !important;
