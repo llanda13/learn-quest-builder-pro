@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { ISODocumentHeader } from "@/components/print/ISODocumentHeader";
 
 interface TestItem {
   question_text?: string;
@@ -26,21 +27,22 @@ interface ExamPrintTemplateProps {
     time_limit?: number;
     instructions?: string;
     items?: TestItem[];
+    prepared_by?: string;
   };
   showAnswerKey?: boolean;
 }
 
 interface GroupedQuestions {
   mcq: TestItem[];
-  secondary: TestItem[];
+  trueFalse: TestItem[];
+  fillBlank: TestItem[];
   essay: TestItem[];
-  secondaryType: 'true_false' | 'short_answer' | null;
 }
 
-function groupQuestionsByType(items: TestItem[]): GroupedQuestions {
+function groupAllQuestionTypes(items: TestItem[]): GroupedQuestions {
   const mcq: TestItem[] = [];
   const trueFalse: TestItem[] = [];
-  const shortAnswer: TestItem[] = [];
+  const fillBlank: TestItem[] = [];
   const essay: TestItem[] = [];
 
   for (const item of items) {
@@ -50,319 +52,297 @@ function groupQuestionsByType(items: TestItem[]): GroupedQuestions {
     } else if (type === 'true_false' || type === 'true-false' || type === 'truefalse') {
       trueFalse.push(item);
     } else if (type === 'short_answer' || type === 'fill-blank' || type === 'fill_blank' || type === 'identification') {
-      shortAnswer.push(item);
+      fillBlank.push(item);
     } else if (type === 'essay') {
       essay.push(item);
     }
   }
 
-  let secondaryType: 'true_false' | 'short_answer' | null = null;
-  let secondary: TestItem[] = [];
-  
-  if (trueFalse.length > 0 && shortAnswer.length === 0) {
-    secondaryType = 'true_false';
-    secondary = trueFalse;
-  } else if (shortAnswer.length > 0 && trueFalse.length === 0) {
-    secondaryType = 'short_answer';
-    secondary = shortAnswer;
-  } else if (trueFalse.length > 0 && shortAnswer.length > 0) {
-    if (trueFalse.length >= shortAnswer.length) {
-      secondaryType = 'true_false';
-      secondary = trueFalse;
-    } else {
-      secondaryType = 'short_answer';
-      secondary = shortAnswer;
-    }
-  }
-
-  return { mcq, secondary, essay, secondaryType };
+  return { mcq, trueFalse, fillBlank, essay };
 }
 
 export function ExamPrintTemplate({ test, showAnswerKey = false }: ExamPrintTemplateProps) {
   const items: TestItem[] = Array.isArray(test.items) ? test.items : [];
+  const groupedQuestions = useMemo(() => groupAllQuestionTypes(items), [items]);
+
   const totalPoints = items.reduce((sum, item) => sum + (item.points || 1), 0);
-  const groupedQuestions = useMemo(() => groupQuestionsByType(items), [items]);
 
-  const mcqStart = 1;
-  const secondaryStart = mcqStart + groupedQuestions.mcq.length;
-  const essayStart = secondaryStart + groupedQuestions.secondary.length;
+  // Calculate section numbering
+  let testNumber = 1;
+  const sections: { label: string; title: string; instruction: string; items: TestItem[]; type: string }[] = [];
 
-  const mcqPoints = groupedQuestions.mcq.reduce((sum, q) => sum + (q.points || 1), 0);
-  const secondaryPoints = groupedQuestions.secondary.reduce((sum, q) => sum + (q.points || 1), 0);
-  const essayPoints = groupedQuestions.essay.reduce((sum, q) => sum + (q.points || 1), 0);
+  if (groupedQuestions.mcq.length > 0) {
+    sections.push({
+      label: `TEST ${toRoman(testNumber)}. MULTIPLE CHOICE`,
+      title: 'MULTIPLE CHOICE',
+      instruction: 'Direction: Read and understand each statement and select the best letter to the correct number',
+      items: groupedQuestions.mcq,
+      type: 'mcq',
+    });
+    testNumber++;
+  }
 
-  const getSectionBTitle = () => {
-    if (groupedQuestions.secondaryType === 'true_false') {
-      return "SECTION B: TRUE OR FALSE";
-    }
-    return "SECTION B: IDENTIFICATION / SHORT ANSWER";
-  };
+  if (groupedQuestions.trueFalse.length > 0) {
+    sections.push({
+      label: `TEST ${toRoman(testNumber)}. TRUE OR FALSE`,
+      title: 'TRUE OR FALSE',
+      instruction: 'Direction: Read and understand each statement and write TRUE if the statement is correct, and write FALSE if the statement is wrong.',
+      items: groupedQuestions.trueFalse,
+      type: 'true_false',
+    });
+    testNumber++;
+  }
 
-  const getSectionBInstruction = () => {
-    if (groupedQuestions.secondaryType === 'true_false') {
-      return "Write TRUE if the statement is correct, or FALSE if it is incorrect. Write your answer on the space provided before each number.";
-    }
-    return "Write the correct answer on the blank provided before each number.";
-  };
+  if (groupedQuestions.fillBlank.length > 0) {
+    sections.push({
+      label: `TEST ${toRoman(testNumber)}. FILL IN THE BLANK`,
+      title: 'FILL IN THE BLANK',
+      instruction: 'Direction: Read and understand each statement and provide the correct word/s in the blank space in every statement.',
+      items: groupedQuestions.fillBlank,
+      type: 'fill_blank',
+    });
+    testNumber++;
+  }
+
+  if (groupedQuestions.essay.length > 0) {
+    sections.push({
+      label: `TEST ${toRoman(testNumber)}. ESSAY`,
+      title: 'ESSAY',
+      instruction: 'Direction: Answer the following questions in complete sentences. Provide clear and concise explanations.',
+      items: groupedQuestions.essay,
+      type: 'essay',
+    });
+    testNumber++;
+  }
+
+  // Calculate total pages (estimate)
+  const totalPages = Math.max(1, Math.ceil(items.length / 15));
 
   return (
     <div className="print-exam-only" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-      {/* Exam Header */}
-      <div className="exam-header">
-        {test.course && <div className="institution-name">{test.course}</div>}
-        <div className="exam-title">{test.title || "EXAMINATION"}</div>
-        <div className="exam-meta">
-          {test.subject && <span>{test.subject}</span>}
-          {test.year_section && <span>{test.year_section}</span>}
-          {test.exam_period && <span>{test.exam_period}</span>}
-          {test.school_year && <span>S.Y. {test.school_year}</span>}
+      {/* ISO Document Header */}
+      <ISODocumentHeader
+        docNo="F-DOI-018"
+        effectiveDate="08/25/2017"
+        revNo="0"
+        pageInfo={`1 of ${totalPages}`}
+      />
+
+      {/* Title in bordered box */}
+      <div style={{
+        textAlign: 'center',
+        fontWeight: 'bold',
+        fontSize: '16pt',
+        border: '2px solid #000',
+        padding: '6px 0',
+        margin: '8pt 0 10pt 0',
+        letterSpacing: '1px',
+      }}>
+        TEST QUESTIONNAIRE
+      </div>
+
+      {/* Exam Period */}
+      <div style={{ textAlign: 'center', fontSize: '12pt', marginBottom: '4pt' }}>
+        {test.exam_period || 'Midterm'} Examination
+      </div>
+
+      {/* Academic Year */}
+      <div style={{ textAlign: 'center', fontSize: '11pt', marginBottom: '4pt' }}>
+        Academic Year: {test.school_year || '2025 – 2026'}: 1<sup>st</sup> Semester
+      </div>
+
+      {/* Subject */}
+      <div style={{ textAlign: 'center', fontSize: '12pt', fontWeight: 'bold', fontStyle: 'italic', marginBottom: '10pt' }}>
+        {test.subject || test.title || ''}
+      </div>
+
+      {/* Student Info Fields - matching reference exactly */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4pt 24pt', marginBottom: '6pt', fontSize: '11pt' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4pt' }}>
+          <span>Name:</span>
+          <span style={{ flex: 1, borderBottom: '1px solid #000' }}>&nbsp;</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4pt' }}>
+          <span>Score:</span>
+          <span style={{ flex: 1, borderBottom: '1px solid #000' }}>&nbsp;</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4pt' }}>
+          <span>Course/Year/Sec.:</span>
+          <span style={{ flex: 1, borderBottom: '1px solid #000' }}>&nbsp;</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4pt' }}>
+          <span>Instructor:</span>
+          <span style={{ flex: 1, borderBottom: '1px solid #000' }}>&nbsp;</span>
         </div>
       </div>
 
-      {/* Student Information Section */}
-      <div className="student-info-section">
-        <div className="student-info-field">
-          <span className="field-label">Name:</span>
-          <span className="field-line"></span>
-        </div>
-        <div className="student-info-field">
-          <span className="field-label">Date:</span>
-          <span className="field-line"></span>
-        </div>
-        <div className="student-info-field">
-          <span className="field-label">Section:</span>
-          <span className="field-line"></span>
-        </div>
-        <div className="student-info-field">
-          <span className="field-label">Score:</span>
-          <span className="field-line"></span>
-          <span style={{ fontWeight: 'bold' }}>/ {totalPoints}</span>
-        </div>
-      </div>
-
-      {/* Exam Summary */}
-      <div className="exam-summary">
-        <span>Total Points: {totalPoints}</span>
-        {test.time_limit && <span>Time Limit: {test.time_limit} minutes</span>}
-        <span>Total Questions: {items.length}</span>
-      </div>
+      {/* Horizontal rule */}
+      <hr style={{ border: 'none', borderTop: '2px solid #000', margin: '10pt 0' }} />
 
       {/* General Instructions */}
-      {test.instructions && (
-        <div className="general-instructions">
-          <h3>General Instructions</h3>
-          <p>{test.instructions}</p>
-        </div>
-      )}
+      <div style={{ marginBottom: '10pt' }}>
+        <h3 style={{ fontSize: '12pt', fontWeight: 'bold', marginBottom: '4pt' }}>General Instructions:</h3>
+        <p style={{ fontSize: '10pt', textAlign: 'justify', fontStyle: 'italic', lineHeight: '1.5' }}>
+          {test.instructions || "Make sure your mobile phone is switched off and place it at the front together with any bags, books, and etc. If you have a question or need more papers, raise your hand and ask the proctor. Keep your eyes on your own paper. Remember, copying is cheating! Stop writing immediately when the proctor says it is the end of the exam. You must remain silent until after you have exited the room."}
+        </p>
+      </div>
 
-      {/* Section A: Multiple Choice */}
-      {groupedQuestions.mcq.length > 0 && (
-        <div className="exam-section">
-          <div className="section-header">
-            <h2>
-              SECTION A: MULTIPLE CHOICE
-              <span className="section-points">({mcqPoints} points)</span>
-            </h2>
-            <p className="section-instruction">
-              Choose the best answer from the options provided. Write the letter of your answer on the space provided before each number.
-            </p>
-          </div>
-          {groupedQuestions.mcq.map((item, index) => (
-            <MCQQuestion 
-              key={index} 
-              item={item} 
-              number={mcqStart + index}
-              showAnswer={showAnswerKey}
-            />
-          ))}
-        </div>
-      )}
+      {/* Additional instruction */}
+      <p style={{ fontSize: '10pt', textAlign: 'justify', marginBottom: '12pt' }}>
+        Read and analyze each of the following questions carefully. Write the <strong>CAPITAL LETTER</strong> of your choice on the space provided. <u>NOTE</u>: Do not use sticky tape or any kind of eraser fluid to change your answers. <em>MODIFIED/ERASURES IN ANSWERS ARE CONSIDERED WRONG.</em>
+      </p>
 
-      {/* Section B: True/False or Short Answer */}
-      {groupedQuestions.secondary.length > 0 && (
-        <div className="exam-section">
-          <div className="section-header">
-            <h2>
-              {getSectionBTitle()}
-              <span className="section-points">({secondaryPoints} points)</span>
-            </h2>
-            <p className="section-instruction">{getSectionBInstruction()}</p>
-          </div>
-          {groupedQuestions.secondary.map((item, index) => (
-            <SecondaryQuestion
-              key={index}
-              item={item}
-              number={secondaryStart + index}
-              type={groupedQuestions.secondaryType}
-              showAnswer={showAnswerKey}
-            />
-          ))}
-        </div>
-      )}
+      {/* Question Sections */}
+      {sections.map((section, sIdx) => {
+        const startNum = sections.slice(0, sIdx).reduce((sum, s) => sum + s.items.length, 0) + 1;
+        return (
+          <div key={sIdx} className="exam-section" style={{ marginTop: sIdx > 0 ? '14pt' : '0' }}>
+            {/* Section Header */}
+            <div style={{ marginBottom: '6pt' }}>
+              <p style={{ fontSize: '11pt', fontWeight: 'bold', textDecoration: 'underline', marginBottom: '2pt' }}>
+                {section.label}:
+              </p>
+              <p style={{ fontSize: '10pt', fontStyle: 'italic', marginBottom: '6pt' }}>
+                {section.instruction}
+              </p>
+            </div>
 
-      {/* Section C: Essay */}
-      {groupedQuestions.essay.length > 0 && (
-        <div className="exam-section">
-          <div className="section-header">
-            <h2>
-              SECTION C: ESSAY
-              <span className="section-points">({essayPoints} points)</span>
-            </h2>
-            <p className="section-instruction">
-              Answer the following questions in complete sentences. Provide clear and concise explanations. Use the space provided for your answer.
-            </p>
+            {/* Questions */}
+            {section.items.map((item, qIdx) => {
+              const num = startNum + qIdx;
+              return (
+                <ISOQuestion
+                  key={qIdx}
+                  item={item}
+                  number={num}
+                  type={section.type}
+                  showAnswer={showAnswerKey}
+                />
+              );
+            })}
           </div>
-          {groupedQuestions.essay.map((item, index) => (
-            <EssayQuestion
-              key={index}
-              item={item}
-              number={essayStart + index}
-              showAnswer={showAnswerKey}
-            />
-          ))}
+        );
+      })}
+
+      {/* Prepared by */}
+      <div style={{ marginTop: '30pt', fontSize: '11pt' }}>
+        <div>Prepared by:</div>
+        <div style={{ marginTop: '20pt', fontWeight: 'bold', textTransform: 'uppercase' }}>
+          {test.prepared_by || '________________________'}
         </div>
-      )}
+        <div style={{ fontSize: '10pt', fontStyle: 'italic' }}>Subject Instructor</div>
+      </div>
 
       {/* Answer Key (on new page) */}
       {showAnswerKey && (
-        <div className="answer-key-section">
-          <h2>ANSWER KEY</h2>
-          
-          {groupedQuestions.mcq.length > 0 && (
-            <AnswerKeyGrid
-              title="Section A: Multiple Choice"
-              items={groupedQuestions.mcq}
-              startNumber={mcqStart}
-            />
-          )}
-          
-          {groupedQuestions.secondary.length > 0 && (
-            <AnswerKeyGrid
-              title={`Section B: ${groupedQuestions.secondaryType === 'true_false' ? 'True or False' : 'Identification'}`}
-              items={groupedQuestions.secondary}
-              startNumber={secondaryStart}
-            />
-          )}
-          
-          {groupedQuestions.essay.length > 0 && (
-            <div style={{ marginTop: '18pt' }}>
-              <h3 style={{ fontSize: '12pt', fontWeight: 'bold', marginBottom: '12pt' }}>
-                Section C: Essay (Sample Answers)
-              </h3>
-              {groupedQuestions.essay.map((item, index) => (
-                <div key={index} style={{ marginBottom: '12pt' }}>
-                  <span style={{ fontWeight: 'bold' }}>{essayStart + index}. </span>
-                  <span>{item.correct_answer ?? item.correctAnswer ?? 'Answers may vary'}</span>
+        <div className="answer-key-section" style={{ pageBreakBefore: 'always' }}>
+          <h2 style={{ fontSize: '14pt', fontWeight: 'bold', textAlign: 'center', marginBottom: '18pt', borderBottom: '2pt solid #000', paddingBottom: '12pt' }}>
+            ANSWER KEY
+          </h2>
+          {sections.map((section, sIdx) => {
+            const startNum = sections.slice(0, sIdx).reduce((sum, s) => sum + s.items.length, 0) + 1;
+            return (
+              <div key={sIdx} style={{ marginBottom: '16pt' }}>
+                <h3 style={{ fontSize: '11pt', fontWeight: 'bold', marginBottom: '8pt' }}>
+                  {section.label}
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4pt' }}>
+                  {section.items.map((item, qIdx) => {
+                    const answer = item.correct_answer ?? item.correctAnswer ?? '—';
+                    return (
+                      <div key={qIdx} style={{ display: 'flex', gap: '4pt', fontSize: '10pt', padding: '2pt 6pt', border: '1pt solid #ccc' }}>
+                        <span style={{ fontWeight: 'bold' }}>{startNum + qIdx}.</span>
+                        <span style={{ fontWeight: 'bold' }}>{String(answer)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-function MCQQuestion({ item, number, showAnswer }: { item: TestItem; number: number; showAnswer: boolean }) {
+function ISOQuestion({ item, number, type, showAnswer }: { item: TestItem; number: number; type: string; showAnswer: boolean }) {
   const questionText = item.question_text || item.question || '';
   const correctAnswer = item.correct_answer ?? item.correctAnswer;
-  
+
   const getMCQOptions = (): { key: string; text: string }[] => {
     const choices = item.choices || item.options;
     if (!choices) return [];
-    
     if (typeof choices === 'object' && !Array.isArray(choices)) {
-      return ['A', 'B', 'C', 'D']
-        .filter(key => choices[key])
-        .map(key => ({ key, text: choices[key] as string }));
+      return ['A', 'B', 'C', 'D'].filter(key => (choices as Record<string, string>)[key]).map(key => ({ key, text: (choices as Record<string, string>)[key] }));
     }
-    
     if (Array.isArray(choices)) {
-      return choices.map((text, idx) => ({
-        key: String.fromCharCode(65 + idx),
-        text: String(text)
-      }));
+      return choices.map((text, idx) => ({ key: String.fromCharCode(65 + idx), text: String(text) }));
     }
-    
     return [];
   };
 
-  const options = getMCQOptions();
-
-  return (
-    <div className="exam-question">
-      <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '8pt' }}>
-        <span className="answer-blank">
-          {showAnswer ? correctAnswer : ''}
-        </span>
-        <span className="question-number">{number}.</span>
-        <span style={{ marginLeft: '6pt', textAlign: 'justify' }}>{questionText}</span>
-      </div>
-      <div className="mcq-options">
-        {options.map((option) => (
-          <div key={option.key} className="mcq-option">
-            <span className="option-letter">{option.key}.</span>
-            <span className="option-text">{option.text}</span>
+  if (type === 'mcq') {
+    const options = getMCQOptions();
+    return (
+      <div className="exam-question" style={{ marginBottom: '8pt', pageBreakInside: 'avoid' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '2pt' }}>
+          <span style={{ fontWeight: 'bold', minWidth: '20pt' }}>{number}.</span>
+          <span style={{ textAlign: 'justify', flex: 1 }}>{questionText}</span>
+        </div>
+        {options.length > 0 && (
+          <div style={{ marginLeft: '28pt', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16pt' }}>
+            {options.map((opt) => (
+              <div key={opt.key} style={{ display: 'flex', gap: '4pt', fontSize: '10pt' }}>
+                <span>{opt.key.toLowerCase()}.</span>
+                <span style={showAnswer && (correctAnswer === opt.key || correctAnswer === opt.key.toLowerCase()) ? { fontWeight: 'bold', textDecoration: 'underline' } : {}}>
+                  {opt.text}
+                </span>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-function SecondaryQuestion({ 
-  item, 
-  number, 
-  type, 
-  showAnswer 
-}: { 
-  item: TestItem; 
-  number: number; 
-  type: 'true_false' | 'short_answer' | null;
-  showAnswer: boolean;
-}) {
-  const questionText = item.question_text || item.question || '';
-  const correctAnswer = item.correct_answer ?? item.correctAnswer;
-
-  return (
-    <div className="exam-question">
-      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-        <span className="answer-blank" style={{ width: type === 'true_false' ? '48pt' : '120pt' }}>
+  if (type === 'true_false') {
+    return (
+      <div className="exam-question" style={{ marginBottom: '4pt', display: 'flex', alignItems: 'flex-start', gap: '4pt' }}>
+        <span style={{ fontWeight: 'bold', minWidth: '20pt' }}>{number}.</span>
+        <span style={{ display: 'inline-block', width: '60pt', borderBottom: '1px solid #000', marginRight: '6pt' }}>
           {showAnswer ? String(correctAnswer) : ''}
         </span>
-        <span className="question-number">{number}.</span>
-        <span style={{ marginLeft: '6pt', textAlign: 'justify', flex: 1 }}>{questionText}</span>
+        <span style={{ textAlign: 'justify', flex: 1 }}>{questionText}</span>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-function EssayQuestion({ item, number, showAnswer }: { item: TestItem; number: number; showAnswer: boolean }) {
-  const questionText = item.question_text || item.question || '';
-  const points = item.points || 1;
-  const correctAnswer = item.correct_answer ?? item.correctAnswer;
+  if (type === 'fill_blank') {
+    return (
+      <div className="exam-question" style={{ marginBottom: '4pt', display: 'flex', alignItems: 'flex-start', gap: '4pt' }}>
+        <span style={{ fontWeight: 'bold', minWidth: '20pt' }}>{number}.</span>
+        <span style={{ textAlign: 'justify', flex: 1 }}>{questionText}</span>
+      </div>
+    );
+  }
 
-  // Calculate number of lines based on points (more points = more space)
-  const lineCount = Math.max(8, points * 2);
-
+  // Essay
   return (
-    <div className="exam-question" style={{ marginBottom: '24pt' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '12pt' }}>
-        <span className="question-number">{number}.</span>
-        <span style={{ marginLeft: '6pt', textAlign: 'justify', flex: 1 }}>{questionText}</span>
-        <span style={{ fontSize: '10pt', whiteSpace: 'nowrap', marginLeft: '12pt' }}>
-          ({points} {points === 1 ? 'point' : 'points'})
-        </span>
+    <div className="exam-question" style={{ marginBottom: '12pt', pageBreakInside: 'avoid' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4pt', marginBottom: '6pt' }}>
+        <span style={{ fontWeight: 'bold', minWidth: '20pt' }}>{number}.</span>
+        <span style={{ textAlign: 'justify', flex: 1 }}>{questionText}</span>
+        <span style={{ fontSize: '9pt', whiteSpace: 'nowrap' }}>({item.points || 1} {(item.points || 1) === 1 ? 'point' : 'points'})</span>
       </div>
-      
       {showAnswer && correctAnswer ? (
-        <div style={{ marginLeft: '24pt', padding: '12pt', border: '1pt solid #ccc', background: '#f9f9f9' }}>
+        <div style={{ marginLeft: '24pt', padding: '6pt', border: '1pt solid #ccc', background: '#f9f9f9' }}>
           <strong>Sample Answer:</strong> {String(correctAnswer)}
         </div>
       ) : (
-        <div className="essay-answer-space">
-          {Array.from({ length: lineCount }).map((_, i) => (
-            <div key={i} className="essay-lines"></div>
+        <div style={{ marginLeft: '20pt' }}>
+          {Array.from({ length: Math.max(5, (item.points || 1) * 2) }).map((_, i) => (
+            <div key={i} style={{ borderBottom: '1pt solid #999', height: '20pt' }}></div>
           ))}
         </div>
       )}
@@ -370,21 +350,14 @@ function EssayQuestion({ item, number, showAnswer }: { item: TestItem; number: n
   );
 }
 
-function AnswerKeyGrid({ title, items, startNumber }: { title: string; items: TestItem[]; startNumber: number }) {
-  return (
-    <div style={{ marginBottom: '18pt' }}>
-      <h3 style={{ fontSize: '11pt', fontWeight: 'bold', marginBottom: '8pt' }}>{title}</h3>
-      <div className="answer-key-grid">
-        {items.map((item, index) => {
-          const answer = item.correct_answer ?? item.correctAnswer ?? '—';
-          return (
-            <div key={index} className="answer-key-item">
-              <span className="key-number">{startNumber + index}.</span>
-              <span className="key-answer">{String(answer)}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+function toRoman(num: number): string {
+  const map: [number, string][] = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+  let result = '';
+  for (const [value, symbol] of map) {
+    while (num >= value) {
+      result += symbol;
+      num -= value;
+    }
+  }
+  return result;
 }

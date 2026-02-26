@@ -1,10 +1,11 @@
 import { useState, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Printer, Download, X } from 'lucide-react';
+import { Printer, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { ISODocumentHeader } from '@/components/print/ISODocumentHeader';
 
 interface TopicDistribution {
   hours: number;
@@ -30,6 +31,7 @@ interface TOSData {
   total_items: number | null;
   prepared_by?: string | null;
   noted_by?: string | null;
+  approved_by?: string | null;
   topics: Array<{ topic: string; hours: number }> | null;
   distribution: Record<string, TopicDistribution> | null;
 }
@@ -78,7 +80,6 @@ export function TOSViewDialog({ open, onOpenChange, tos }: TOSViewDialogProps) {
   const formatItems = (items: number[]) => {
     if (!items || items.length === 0) return '';
     if (items.length <= 3) return `(${items.join(',')})`;
-    // Group consecutive ranges
     const sorted = [...items].sort((a, b) => a - b);
     const ranges: string[] = [];
     let start = sorted[0], end = sorted[0];
@@ -108,20 +109,10 @@ export function TOSViewDialog({ open, onOpenChange, tos }: TOSViewDialogProps) {
         @page { size: letter landscape; margin: 0.5in 0.6in; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: "Times New Roman", Times, serif; font-size: 11pt; color: #000; background: #fff; line-height: 1.4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .tos-header { text-align: center; font-weight: bold; font-size: 14pt; border: 2px solid #000; padding: 6px 0; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
-        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 40px; margin-bottom: 14px; font-size: 11pt; }
-        .meta-grid .label { font-weight: normal; }
-        .meta-grid .value { text-decoration: underline; font-weight: normal; margin-left: 4px; }
-        table { border-collapse: collapse; width: 100%; table-layout: auto; margin-top: 8px; }
+        img { max-width: 100%; }
+        table { border-collapse: collapse; width: 100%; table-layout: auto; }
         th, td { border: 1.5px solid #000; padding: 4px 6px; text-align: center; vertical-align: middle; font-size: 9.5pt; }
         th { background-color: #e8f5e9 !important; font-weight: bold; }
-        .topic-cell { text-align: left; padding-left: 8px; min-width: 120px; }
-        .item-nums { font-size: 8pt; display: block; color: #333; }
-        .sig-section { display: flex; justify-content: space-between; margin-top: 30px; }
-        .sig-block { text-align: center; width: 40%; }
-        .sig-line { border-top: 1px solid #000; margin-top: 30px; padding-top: 4px; font-weight: bold; }
-        .sig-title { font-size: 9pt; color: #555; }
-        .total-row td { font-weight: bold; background-color: #f5f5f5 !important; }
         @media print { body { margin: 0; padding: 0; } }
       </style></head><body>${printRef.current.innerHTML}</body></html>
     `);
@@ -172,7 +163,7 @@ export function TOSViewDialog({ open, onOpenChange, tos }: TOSViewDialogProps) {
         }
       }
 
-      const filename = `TOS_${tos?.course || 'export'}_${tos?.exam_period || ''}.pdf`.replace(/\s+/g, '_');
+      const filename = `TOS_${tos?.subject_no || tos?.course || 'export'}_${tos?.exam_period || ''}_${tos?.school_year || ''}.pdf`.replace(/\s+/g, '_');
       pdf.save(filename);
       toast({ title: 'Success', description: 'TOS exported as PDF' });
     } catch (err) {
@@ -184,6 +175,24 @@ export function TOSViewDialog({ open, onOpenChange, tos }: TOSViewDialogProps) {
   }, [tos, toast]);
 
   if (!tos) return null;
+
+  const thStyle: React.CSSProperties = {
+    border: '1.5px solid #000',
+    padding: '4px 6px',
+    backgroundColor: '#e8f5e9',
+    fontWeight: 'bold',
+    fontSize: '9.5pt',
+    textAlign: 'center',
+    verticalAlign: 'middle',
+  };
+
+  const tdStyle: React.CSSProperties = {
+    border: '1.5px solid #000',
+    padding: '4px 6px',
+    textAlign: 'center',
+    fontSize: '9.5pt',
+    verticalAlign: 'middle',
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -213,164 +222,201 @@ export function TOSViewDialog({ open, onOpenChange, tos }: TOSViewDialogProps) {
               lineHeight: 1.4,
             }}
           >
+            {/* ISO Document Header */}
+            <ISODocumentHeader
+              docNo="F-DOI-009"
+              effectiveDate="11/17/2025"
+              revNo="3"
+              pageInfo="1 of 1"
+            />
+
             {/* Title */}
-            <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14pt', border: '2px solid #000', padding: '6px 0', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            <div style={{
+              textAlign: 'center',
+              fontWeight: 'bold',
+              fontSize: '14pt',
+              border: '2px solid #000',
+              padding: '6px 0',
+              marginBottom: '14px',
+              marginTop: '8px',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+            }}>
               Two-Way Table of Specification
             </div>
 
-            {/* Metadata grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 40px', marginBottom: '14px', fontSize: '11pt' }}>
+            {/* Metadata grid - matching reference exactly */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '2px 40px',
+              marginBottom: '14px',
+              fontSize: '11pt',
+            }}>
               <div>
                 <span>College: </span>
-                <span style={{ textDecoration: 'underline' }}>{tos.description || '_______________'}</span>
+                <span style={{ textDecoration: 'underline' }}>
+                  {tos.description || '_______________'}
+                </span>
               </div>
               <div>
                 <span>Examination Period: </span>
-                <span style={{ textDecoration: 'underline' }}>{tos.exam_period || '_______________'}</span>
+                <span style={{ textDecoration: 'underline' }}>
+                  {tos.exam_period || '_______________'}
+                </span>
               </div>
               <div>
                 <span>Subject No.: </span>
-                <span style={{ textDecoration: 'underline' }}>{tos.subject_no || '_______________'}</span>
+                <span style={{ textDecoration: 'underline' }}>
+                  {tos.subject_no || '_______________'}
+                </span>
               </div>
               <div>
                 <span>Year and Section: </span>
-                <span style={{ textDecoration: 'underline' }}>{tos.year_section || '_______________'}</span>
+                <span style={{ textDecoration: 'underline' }}>
+                  {tos.year_section || '_______________'}
+                </span>
               </div>
               <div>
                 <span>Description: </span>
-                <span style={{ textDecoration: 'underline' }}>{tos.description || '_______________'}</span>
+                <span style={{ textDecoration: 'underline' }}>
+                  {tos.description || '_______________'}
+                </span>
               </div>
               <div>
                 <span>Course: </span>
-                <span style={{ textDecoration: 'underline' }}>{tos.course || '_______________'}</span>
+                <span style={{ textDecoration: 'underline' }}>
+                  {tos.course || '_______________'}
+                </span>
               </div>
             </div>
 
-            {/* TOS Table */}
+            {/* TOS Table - exact match to reference */}
             <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'auto', marginTop: '8px' }}>
               <thead>
-                {/* Header row 1: grouping */}
+                {/* Row 1: Main grouping headers */}
                 <tr>
-                  <th rowSpan={2} style={{ border: '1.5px solid #000', padding: '4px 6px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '9.5pt', minWidth: '120px' }}>
+                  <th rowSpan={3} style={{ ...thStyle, minWidth: '120px', textAlign: 'left', paddingLeft: '8px' }}>
                     TOPIC
                   </th>
-                  <th rowSpan={2} style={{ border: '1.5px solid #000', padding: '4px 6px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '9.5pt' }}>
+                  <th rowSpan={3} style={thStyle}>
                     NO. OF<br />HOURS
                   </th>
-                  <th rowSpan={2} style={{ border: '1.5px solid #000', padding: '4px 6px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '9.5pt' }}>
-                    PERCENTAGE
+                  <th rowSpan={3} style={thStyle}>
+                    PERCEN<br />TAGE
                   </th>
-                  <th colSpan={6} style={{ border: '1.5px solid #000', padding: '4px 6px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '10pt' }}>
+                  <th colSpan={6} style={{ ...thStyle, fontSize: '10pt' }}>
                     COGNITIVE DOMAINS
                   </th>
-                  <th rowSpan={2} style={{ border: '1.5px solid #000', padding: '4px 6px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '9.5pt' }}>
+                  <th rowSpan={3} style={thStyle}>
                     ITEM<br />PLACEMENT
                   </th>
-                  <th rowSpan={2} style={{ border: '1.5px solid #000', padding: '4px 6px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '9.5pt' }}>
+                  <th rowSpan={3} style={thStyle}>
                     TOTAL
                   </th>
                 </tr>
-                {/* Header row 2: difficulty levels */}
+                {/* Row 2: Difficulty groupings */}
                 <tr>
-                  <th colSpan={2} style={{ border: '1.5px solid #000', padding: '3px 4px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '8.5pt' }}>
+                  <th colSpan={2} style={{ ...thStyle, fontSize: '8.5pt' }}>
                     EASY (30%)
                   </th>
-                  <th colSpan={2} style={{ border: '1.5px solid #000', padding: '3px 4px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '8.5pt' }}>
+                  <th colSpan={2} style={{ ...thStyle, fontSize: '8.5pt' }}>
                     AVERAGE (40%)
                   </th>
-                  <th colSpan={2} style={{ border: '1.5px solid #000', padding: '3px 4px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '8.5pt' }}>
+                  <th colSpan={2} style={{ ...thStyle, fontSize: '8.5pt' }}>
                     DIFFICULT (30%)
                   </th>
                 </tr>
-                {/* Header row 3: bloom levels */}
+                {/* Row 3: Bloom's levels */}
                 <tr>
-                  <th colSpan={3} style={{ border: '1.5px solid #000', padding: '0', backgroundColor: '#e8f5e9' }}></th>
-                  <th style={{ border: '1.5px solid #000', padding: '3px 4px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '8pt' }}>
-                    Remembering<br />(15%)
-                  </th>
-                  <th style={{ border: '1.5px solid #000', padding: '3px 4px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '8pt' }}>
-                    Understanding<br />(15%)
-                  </th>
-                  <th style={{ border: '1.5px solid #000', padding: '3px 4px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '8pt' }}>
-                    Applying<br />(20%)
-                  </th>
-                  <th style={{ border: '1.5px solid #000', padding: '3px 4px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '8pt' }}>
-                    Analyzing<br />(20%)
-                  </th>
-                  <th style={{ border: '1.5px solid #000', padding: '3px 4px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '8pt' }}>
-                    Evaluating<br />(15%)
-                  </th>
-                  <th style={{ border: '1.5px solid #000', padding: '3px 4px', backgroundColor: '#e8f5e9', fontWeight: 'bold', fontSize: '8pt' }}>
-                    Creating<br />(15%)
-                  </th>
-                  <th colSpan={2} style={{ border: '1.5px solid #000', padding: '0', backgroundColor: '#e8f5e9' }}></th>
+                  <th style={{ ...thStyle, fontSize: '8pt' }}>Remembering<br />(15%)</th>
+                  <th style={{ ...thStyle, fontSize: '8pt' }}>Understanding<br />(15%)</th>
+                  <th style={{ ...thStyle, fontSize: '8pt' }}>Applying<br />(20%)</th>
+                  <th style={{ ...thStyle, fontSize: '8pt' }}>Analyzing<br />(20%)</th>
+                  <th style={{ ...thStyle, fontSize: '8pt' }}>Evaluating<br />(15%)</th>
+                  <th style={{ ...thStyle, fontSize: '8pt' }}>Creating<br />(15%)</th>
                 </tr>
               </thead>
               <tbody>
                 {topicRows.map((row, idx) => (
                   <tr key={idx}>
-                    <td style={{ border: '1.5px solid #000', padding: '5px 8px', textAlign: 'left', fontSize: '9.5pt', verticalAlign: 'middle' }}>
+                    <td style={{ ...tdStyle, textAlign: 'left', paddingLeft: '8px' }}>
                       {row.topic}
                     </td>
-                    <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '9.5pt', verticalAlign: 'middle' }}>
-                      {row.hours} hours
-                    </td>
-                    <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '9.5pt', verticalAlign: 'middle' }}>
-                      {row.percentage}%
-                    </td>
-                    {/* Bloom cells with count + item numbers */}
+                    <td style={tdStyle}>{row.hours}</td>
+                    <td style={tdStyle}>{row.percentage}%</td>
                     {(['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating'] as const).map(level => (
-                      <td key={level} style={{ border: '1.5px solid #000', padding: '4px 5px', textAlign: 'center', fontSize: '9.5pt', verticalAlign: 'middle' }}>
+                      <td key={level} style={tdStyle}>
                         {row[level].count}
                         <span style={{ display: 'block', fontSize: '7.5pt', color: '#333' }}>
                           {formatItems(row[level].items)}
                         </span>
                       </td>
                     ))}
-                    <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '9.5pt', fontWeight: 'bold', verticalAlign: 'middle' }}>
-                      I
-                    </td>
-                    <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '10pt', fontWeight: 'bold', verticalAlign: 'middle' }}>
-                      {row.total}
-                    </td>
+                    <td style={{ ...tdStyle, fontWeight: 'bold' }}>Test I</td>
+                    <td style={{ ...tdStyle, fontWeight: 'bold', fontSize: '10pt' }}>{row.total}</td>
                   </tr>
                 ))}
                 {/* Totals row */}
                 <tr style={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
-                  <td style={{ border: '1.5px solid #000', padding: '5px 8px', textAlign: 'left', fontSize: '10pt', fontWeight: 'bold' }}>
-                    TOTAL
-                  </td>
-                  <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '10pt', fontWeight: 'bold' }}>
-                    {totals.hours}
-                  </td>
-                  <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '10pt', fontWeight: 'bold' }}>
-                    100%
-                  </td>
-                  <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '10pt', fontWeight: 'bold' }}>{totals.remembering}</td>
-                  <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '10pt', fontWeight: 'bold' }}>{totals.understanding}</td>
-                  <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '10pt', fontWeight: 'bold' }}>{totals.applying}</td>
-                  <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '10pt', fontWeight: 'bold' }}>{totals.analyzing}</td>
-                  <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '10pt', fontWeight: 'bold' }}>{totals.evaluating}</td>
-                  <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '10pt', fontWeight: 'bold' }}>{totals.creating}</td>
-                  <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '10pt' }}></td>
-                  <td style={{ border: '1.5px solid #000', padding: '4px 6px', textAlign: 'center', fontSize: '10pt', fontWeight: 'bold' }}>{totals.total}</td>
+                  <td style={{ ...tdStyle, textAlign: 'left', paddingLeft: '8px', fontWeight: 'bold', fontSize: '10pt' }}>TOTAL</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold', fontSize: '10pt' }}>{totals.hours}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold', fontSize: '10pt' }}>100%</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold', fontSize: '10pt' }}>{totals.remembering}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold', fontSize: '10pt' }}>{totals.understanding}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold', fontSize: '10pt' }}>{totals.applying}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold', fontSize: '10pt' }}>{totals.analyzing}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold', fontSize: '10pt' }}>{totals.evaluating}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold', fontSize: '10pt' }}>{totals.creating}</td>
+                  <td style={{ ...tdStyle, fontSize: '10pt' }}></td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold', fontSize: '10pt' }}>{totals.total}</td>
                 </tr>
               </tbody>
             </table>
 
-            {/* Signature section */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '30px' }}>
-              <div style={{ textAlign: 'center', width: '40%' }}>
-                <div style={{ borderTop: '1px solid #000', marginTop: '30px', paddingTop: '4px', fontWeight: 'bold' }}>
+            {/* Signature section - 3 columns matching reference */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginTop: '30px',
+              fontSize: '10pt',
+            }}>
+              <div style={{ textAlign: 'center', width: '30%' }}>
+                <div style={{ fontSize: '9pt', marginBottom: '4px' }}>Prepared by:</div>
+                <div style={{
+                  borderTop: 'none',
+                  marginTop: '20px',
+                  paddingTop: '4px',
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase',
+                }}>
                   {tos.prepared_by || '________________________'}
                 </div>
-                <div style={{ fontSize: '9pt', color: '#555' }}>Prepared by</div>
+                <div style={{ fontSize: '9pt', fontStyle: 'italic' }}>Instructor I</div>
               </div>
-              <div style={{ textAlign: 'center', width: '40%' }}>
-                <div style={{ borderTop: '1px solid #000', marginTop: '30px', paddingTop: '4px', fontWeight: 'bold' }}>
+              <div style={{ textAlign: 'center', width: '30%' }}>
+                <div style={{ fontSize: '9pt', marginBottom: '4px' }}>Checked and Reviewed by:</div>
+                <div style={{
+                  marginTop: '20px',
+                  paddingTop: '4px',
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase',
+                }}>
                   {tos.noted_by || '________________________'}
                 </div>
-                <div style={{ fontSize: '9pt', color: '#555' }}>Noted by</div>
+                <div style={{ fontSize: '9pt', fontStyle: 'italic' }}>Program Chair</div>
+              </div>
+              <div style={{ textAlign: 'center', width: '30%' }}>
+                <div style={{ fontSize: '9pt', marginBottom: '4px' }}>Approved by:</div>
+                <div style={{
+                  marginTop: '20px',
+                  paddingTop: '4px',
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase',
+                }}>
+                  {(tos as any).approved_by || '________________________'}
+                </div>
+                <div style={{ fontSize: '9pt', fontStyle: 'italic' }}>Dean</div>
               </div>
             </div>
           </div>
