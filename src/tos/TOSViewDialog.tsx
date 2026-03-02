@@ -30,6 +30,7 @@ interface TOSData {
   school_year: string | null;
   total_items: number | null;
   prepared_by?: string | null;
+  checked_by?: string | null;
   noted_by?: string | null;
   approved_by?: string | null;
   topics: Array<{ topic: string; hours: number }> | null;
@@ -402,7 +403,7 @@ export function TOSViewDialog({ open, onOpenChange, tos }: TOSViewDialogProps) {
                   fontWeight: 'bold',
                   textTransform: 'uppercase',
                 }}>
-                  {tos.noted_by || '________________________'}
+                  {tos.checked_by || '________________________'}
                 </div>
                 <div style={{ fontSize: '9pt', fontStyle: 'italic' }}>Program Chair</div>
               </div>
@@ -414,7 +415,7 @@ export function TOSViewDialog({ open, onOpenChange, tos }: TOSViewDialogProps) {
                   fontWeight: 'bold',
                   textTransform: 'uppercase',
                 }}>
-                  {(tos as any).approved_by || '________________________'}
+                  {tos.noted_by || '________________________'}
                 </div>
                 <div style={{ fontSize: '9pt', fontStyle: 'italic' }}>Dean</div>
               </div>
