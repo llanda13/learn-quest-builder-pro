@@ -921,6 +921,7 @@ export type Database = {
           approved: boolean
           approved_by: string | null
           bloom_level: string | null
+          category: string | null
           choices: Json | null
           classification_confidence: number | null
           cognitive_level: string | null
@@ -941,8 +942,11 @@ export type Database = {
           readability_score: number | null
           search_vector: unknown
           semantic_vector: string | null
+          specialization: string | null
           status: string | null
           subject: string | null
+          subject_code: string | null
+          subject_description: string | null
           tags: string[] | null
           term: string | null
           topic: string
@@ -962,6 +966,7 @@ export type Database = {
           approved?: boolean
           approved_by?: string | null
           bloom_level?: string | null
+          category?: string | null
           choices?: Json | null
           classification_confidence?: number | null
           cognitive_level?: string | null
@@ -982,8 +987,11 @@ export type Database = {
           readability_score?: number | null
           search_vector?: unknown
           semantic_vector?: string | null
+          specialization?: string | null
           status?: string | null
           subject?: string | null
+          subject_code?: string | null
+          subject_description?: string | null
           tags?: string[] | null
           term?: string | null
           topic: string
@@ -1003,6 +1011,7 @@ export type Database = {
           approved?: boolean
           approved_by?: string | null
           bloom_level?: string | null
+          category?: string | null
           choices?: Json | null
           classification_confidence?: number | null
           cognitive_level?: string | null
@@ -1023,8 +1032,11 @@ export type Database = {
           readability_score?: number | null
           search_vector?: unknown
           semantic_vector?: string | null
+          specialization?: string | null
           status?: string | null
           subject?: string | null
+          subject_code?: string | null
+          subject_description?: string | null
           tags?: string[] | null
           term?: string | null
           topic?: string

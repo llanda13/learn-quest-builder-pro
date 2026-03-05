@@ -113,7 +113,7 @@ export function TOSViewDialog({ open, onOpenChange, tos }: TOSViewDialogProps) {
         img { max-width: 100%; }
         table { border-collapse: collapse; width: 100%; table-layout: auto; }
         th, td { border: 1.5px solid #000; padding: 4px 6px; text-align: center; vertical-align: middle; font-size: 9.5pt; }
-        th { background-color: #e8f5e9 !important; font-weight: bold; }
+        th { background-color: #91E291 !important; font-weight: bold; }
         @media print { body { margin: 0; padding: 0; } }
       </style></head><body>${printRef.current.innerHTML}</body></html>
     `);
@@ -180,7 +180,7 @@ export function TOSViewDialog({ open, onOpenChange, tos }: TOSViewDialogProps) {
   const thStyle: React.CSSProperties = {
     border: '1.5px solid #000',
     padding: '4px 6px',
-    backgroundColor: '#e8f5e9',
+    backgroundColor: '#91E291',
     fontWeight: 'bold',
     fontSize: '9.5pt',
     textAlign: 'center',
