@@ -46,10 +46,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    // Role check - teacher or admin for write ops, any auth for reads
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    
+
+    // User-scoped client respects RLS policies
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    })
+    // Service role client for write ops that need elevated access
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const url = new URL(req.url)
@@ -61,8 +66,8 @@ Deno.serve(async (req) => {
     switch (req.method) {
       case 'GET': {
         if (rubricId && rubricId !== 'rubrics') {
-          // Get specific rubric with criteria
-          const { data: rubric, error: rubricError } = await supabase
+          // Get specific rubric with criteria (uses RLS-scoped client)
+          const { data: rubric, error: rubricError } = await userClient
             .from('rubrics')
             .select('*')
             .eq('id', rubricId)
@@ -71,12 +76,12 @@ Deno.serve(async (req) => {
           if (rubricError) {
             console.error('Error fetching rubric:', rubricError)
             return new Response(
-              JSON.stringify({ error: rubricError.message }),
+              JSON.stringify({ error: 'Rubric not found' }),
               { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
 
-          const { data: criteria, error: criteriaError } = await supabase
+          const { data: criteria, error: criteriaError } = await userClient
             .from('rubric_criteria')
             .select('*')
             .eq('rubric_id', rubricId)
@@ -85,7 +90,7 @@ Deno.serve(async (req) => {
           if (criteriaError) {
             console.error('Error fetching criteria:', criteriaError)
             return new Response(
-              JSON.stringify({ error: criteriaError.message }),
+              JSON.stringify({ error: 'Failed to fetch criteria' }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
@@ -95,8 +100,8 @@ Deno.serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         } else {
-          // Get all rubrics for the user
-          const { data: rubrics, error } = await supabase
+          // Get rubrics visible to the user (RLS enforced)
+          const { data: rubrics, error } = await userClient
             .from('rubrics')
             .select(`
               *,
@@ -107,7 +112,7 @@ Deno.serve(async (req) => {
           if (error) {
             console.error('Error fetching rubrics:', error)
             return new Response(
-              JSON.stringify({ error: error.message }),
+              JSON.stringify({ error: 'Failed to fetch rubrics' }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
