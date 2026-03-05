@@ -28,7 +28,7 @@ export function ISODocumentHeader({
         <img
           src="/images/institution-logo.png"
           alt="Institution Logo"
-          style={{ width: '72pt', height: '72pt', objectFit: 'contain' }}
+          style={{ width: '72pt', height: '72pt', objectFit: 'contain', background: '#ffffff', borderRadius: 0 }}
           crossOrigin="anonymous"
         />
       </div>
