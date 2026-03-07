@@ -101,13 +101,6 @@ export default function UserManagement() {
         .eq('id', editUser.id);
       if (profileError) throw profileError;
 
-      // Update role via security definer function
-      const { error: roleError } = await supabase.rpc('assign_user_role', {
-        target_user_id: editUser.id,
-        new_role: editForm.role || 'teacher',
-      });
-      if (roleError) throw roleError;
-
       toast({ title: 'Success', description: 'User updated successfully.' });
       setShowEditDialog(false);
       fetchUsers();
@@ -277,13 +270,7 @@ export default function UserManagement() {
             </div>
             <div>
               <Label>Role</Label>
-              <Select value={editForm.role} onValueChange={v => setEditForm(f => ({ ...f, role: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="teacher">Teacher</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input value={editForm.role === 'admin' ? 'Admin' : 'Teacher'} disabled className="bg-muted" />
             </div>
           </div>
           <DialogFooter>
