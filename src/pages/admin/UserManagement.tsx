@@ -101,13 +101,6 @@ export default function UserManagement() {
         .eq('id', editUser.id);
       if (profileError) throw profileError;
 
-      // Update role via security definer function
-      const { error: roleError } = await supabase.rpc('assign_user_role', {
-        target_user_id: editUser.id,
-        new_role: editForm.role || 'teacher',
-      });
-      if (roleError) throw roleError;
-
       toast({ title: 'Success', description: 'User updated successfully.' });
       setShowEditDialog(false);
       fetchUsers();
