@@ -5,7 +5,7 @@ import {
   LayoutDashboard, 
   Users, 
   Database, 
-  BarChart3,
+  Archive,
   Settings,
   LogOut,
   ChevronLeft,
@@ -50,10 +50,10 @@ const adminMenuItems = [
     description: "Generate tests" 
   },
   { 
-    title: "System Analytics", 
-    href: "/admin/analytics", 
-    icon: BarChart3,
-    description: "Performance metrics" 
+    title: "Recently Deleted", 
+    href: "/admin/recently-deleted", 
+    icon: Archive,
+    description: "Archive & recovery" 
   },
 ];
 

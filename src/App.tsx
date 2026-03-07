@@ -14,6 +14,7 @@ import PendingApprovals from "./pages/admin/PendingApprovals";
 import BulkImportPage from "./pages/admin/BulkImportPage";
 import UserManagement from "./pages/admin/UserManagement";
 import AdminAnalytics from "./pages/admin/Analytics";
+import RecentlyDeleted from "./pages/admin/RecentlyDeleted";
 import AdminSettings from "./pages/admin/Settings";
 import AILogs from "./pages/admin/AILogs";
 import TOSPage from "./pages/teacher/TOSPage";
@@ -67,6 +68,7 @@ const App = () => {
                         <Route path="bulk-import" element={<BulkImportPage />} />
                         <Route path="users" element={<UserManagement />} />
                         <Route path="analytics" element={<AdminAnalytics />} />
+                        <Route path="recently-deleted" element={<RecentlyDeleted />} />
                         <Route path="generate-test" element={<IntelligentTestGenerator />} />
                         <Route path="ai-logs" element={<AILogs />} />
                         <Route path="quality" element={<Quality />} />

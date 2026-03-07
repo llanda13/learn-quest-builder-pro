@@ -101,14 +101,12 @@ export default function UserManagement() {
         .eq('id', editUser.id);
       if (profileError) throw profileError;
 
-      // Update role
-      await supabase.from('user_roles').delete().eq('user_id', editUser.id);
-      if (editForm.role === 'admin' || editForm.role === 'teacher') {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert([{ user_id: editUser.id, role: editForm.role }]);
-        if (roleError) throw roleError;
-      }
+      // Update role via security definer function
+      const { error: roleError } = await supabase.rpc('assign_user_role', {
+        target_user_id: editUser.id,
+        new_role: editForm.role || 'teacher',
+      });
+      if (roleError) throw roleError;
 
       toast({ title: 'Success', description: 'User updated successfully.' });
       setShowEditDialog(false);
