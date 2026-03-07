@@ -5,7 +5,7 @@ import {
   LayoutDashboard, 
   Users, 
   Database, 
-  BarChart3,
+  Archive,
   Settings,
   LogOut,
   ChevronLeft,
@@ -52,7 +52,7 @@ const adminMenuItems = [
   { 
     title: "Recently Deleted", 
     href: "/admin/recently-deleted", 
-    icon: BarChart3,
+    icon: Archive,
     description: "Archive & recovery" 
   },
 ];
