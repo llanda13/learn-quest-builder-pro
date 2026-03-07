@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Wand2, Loader2, ChevronRight, ChevronLeft, Sparkles, RefreshCw, CheckCircle, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Questions } from '@/services/db/questions';
+import { resolveSubjectMetadata } from '@/services/ai/subjectMetadataResolver';
 
 interface GeneratedTopic {
   name: string;
@@ -220,19 +221,32 @@ export default function IntelligentTestGenerator() {
 
       const allQuestions = generatedData.flatMap(td => [
         ...td.mcq, ...td.fill_blank, ...td.true_false, ...td.essay
-      ].map(q => ({
-        question_text: q.question_text,
-        question_type: q.question_type,
-        choices: q.choices || {},
-        correct_answer: q.correct_answer,
-        bloom_level: q.bloom_level,
-        difficulty: q.difficulty,
-        topic: td.topic,
-        subject: `${subjectNumber} - ${subjectDescription}`,
-        created_by: 'ai' as const,
-        approved: false,
-        needs_review: true,
-      })));
+      ].map(q => {
+        const subjectMeta = resolveSubjectMetadata({
+          subject: `${subjectNumber} - ${subjectDescription}`,
+          topic: td.topic,
+          subject_code: subjectNumber,
+          subject_description: subjectDescription,
+        });
+
+        return {
+          question_text: q.question_text,
+          question_type: q.question_type,
+          choices: q.choices || {},
+          correct_answer: q.correct_answer,
+          bloom_level: q.bloom_level,
+          difficulty: q.difficulty,
+          topic: td.topic,
+          subject: `${subjectNumber} - ${subjectDescription}`,
+          category: subjectMeta.category,
+          specialization: subjectMeta.specialization,
+          subject_code: subjectMeta.subject_code,
+          subject_description: subjectMeta.subject_description,
+          created_by: 'ai' as const,
+          approved: false,
+          needs_review: true,
+        };
+      }));
 
       await Questions.bulkInsert(allQuestions);
 
