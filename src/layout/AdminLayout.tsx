@@ -50,10 +50,10 @@ const adminMenuItems = [
     description: "Generate tests" 
   },
   { 
-    title: "System Analytics", 
-    href: "/admin/analytics", 
+    title: "Recently Deleted", 
+    href: "/admin/recently-deleted", 
     icon: BarChart3,
-    description: "Performance metrics" 
+    description: "Archive & recovery" 
   },
 ];
 
