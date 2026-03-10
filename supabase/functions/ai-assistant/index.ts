@@ -34,11 +34,11 @@ STRICT RULES:
 // Check if a message attempts system modification
 function isSystemModificationAttempt(message: string): boolean {
   const blockedPatterns = [
-    /\b(modify|change|update|delete|drop|alter|insert|truncate)\b.*\b(system|database|table|schema|config|setting|admin|user|role|permission|secret|env|api.?key)\b/i,
+    /\b(modify|change|update|delete|drop|alter|insert|truncate)\b.*\b(system|database|table|schema|config|setting)\b/i,
     /\b(ignore|forget|override|bypass|skip)\b.*\b(instructions?|rules?|prompts?|restrictions?|guidelines?)\b/i,
     /\b(show|reveal|display|print|output)\b.*\b(system.?prompt|instructions?|api.?key|secret|password|token)\b/i,
     /\b(execute|run|eval)\b.*\b(code|script|command|sql|query)\b/i,
-    /\b(sudo|admin|root|superuser|privilege)\b/i,
+    /\b(sudo|root|superuser)\b/i,
     /\bact as\b.*\b(admin|system|root|developer)\b/i,
   ];
 
