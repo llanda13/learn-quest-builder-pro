@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { KnowledgeDimension } from "@/types/knowledge";
 import { quickClassifyKnowledgeDimension } from "@/services/analysis/knowledgeDeterminer";
+import { deduplicateSubjectCode, batchDeduplicateSubjectCodes } from "@/services/db/subjectDeduplication";
 
 export type Question = Database['public']['Tables']['questions']['Row'];
 export type QuestionInsert = Database['public']['Tables']['questions']['Insert'];
