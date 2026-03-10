@@ -11,8 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Brain,
-  Upload,
-  Sparkles
+  Upload
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,12 +41,6 @@ const adminMenuItems = [
     href: "/admin/bulk-import", 
     icon: Upload,
     description: "Import questions" 
-  },
-  { 
-    title: "AI Test Generator", 
-    href: "/admin/generate-test", 
-    icon: Sparkles,
-    description: "Generate tests" 
   },
   { 
     title: "AI Assistant", 

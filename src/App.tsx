@@ -18,7 +18,7 @@ import RecentlyDeleted from "./pages/admin/RecentlyDeleted";
 import AdminSettings from "./pages/admin/Settings";
 import AILogs from "./pages/admin/AILogs";
 import TOSPage from "./pages/teacher/TOSPage";
-import IntelligentTestGenerator from "./pages/teacher/IntelligentTestGenerator";
+
 import MyTests from "./pages/teacher/MyTests";
 import TestPreview from "./pages/teacher/TestPreview";
 import GeneratedTestPage from "./pages/teacher/GeneratedTestPage";
@@ -70,7 +70,6 @@ const App = () => {
                         <Route path="users" element={<UserManagement />} />
                         <Route path="analytics" element={<AdminAnalytics />} />
                         <Route path="recently-deleted" element={<RecentlyDeleted />} />
-                        <Route path="generate-test" element={<IntelligentTestGenerator />} />
                         <Route path="ai-assistant" element={<AIAssistant />} />
                         <Route path="ai-logs" element={<AILogs />} />
                         <Route path="quality" element={<Quality />} />
@@ -94,7 +93,7 @@ const App = () => {
                         <Route index element={<Navigate to="/teacher/dashboard" replace />} />
                         <Route path="dashboard" element={<TeacherDashboard />} />
                         <Route path="tos" element={<TOSPage />} />
-                        <Route path="generate-test" element={<IntelligentTestGenerator />} />
+                        
                         <Route path="ai-assistant" element={<AIAssistant />} />
                         <Route path="my-tests" element={<MyTests />} />
                         <Route path="test/:testId" element={<TestPreview />} />
