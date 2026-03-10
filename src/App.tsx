@@ -18,7 +18,7 @@ import RecentlyDeleted from "./pages/admin/RecentlyDeleted";
 import AdminSettings from "./pages/admin/Settings";
 import AILogs from "./pages/admin/AILogs";
 import TOSPage from "./pages/teacher/TOSPage";
-import IntelligentTestGenerator from "./pages/teacher/IntelligentTestGenerator";
+
 import MyTests from "./pages/teacher/MyTests";
 import TestPreview from "./pages/teacher/TestPreview";
 import GeneratedTestPage from "./pages/teacher/GeneratedTestPage";
