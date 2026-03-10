@@ -36,6 +36,7 @@ import TestAssembly from "./pages/TestAssembly";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import { TeacherLayout } from "./components/layout/TeacherLayout";
+import QuestionBank from "./pages/QuestionBank";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
