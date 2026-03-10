@@ -32,6 +32,7 @@ export function QuestionBankList() {
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const { toast } = useToast();
+  const { isAdmin } = useUserRole();
 
   useEffect(() => {
     fetchQuestions();
