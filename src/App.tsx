@@ -93,7 +93,7 @@ const App = () => {
                         <Route index element={<Navigate to="/teacher/dashboard" replace />} />
                         <Route path="dashboard" element={<TeacherDashboard />} />
                         <Route path="tos" element={<TOSPage />} />
-                        <Route path="generate-test" element={<IntelligentTestGenerator />} />
+                        
                         <Route path="ai-assistant" element={<AIAssistant />} />
                         <Route path="my-tests" element={<MyTests />} />
                         <Route path="test/:testId" element={<TestPreview />} />
