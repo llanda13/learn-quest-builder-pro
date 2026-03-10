@@ -14,6 +14,7 @@ import {
   ChevronRight,
   User,
   BookOpen,
+  Database,
   Menu,
   X
 } from "lucide-react";
