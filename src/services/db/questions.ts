@@ -155,6 +155,9 @@ export const Questions = {
       };
     });
 
+    // Deduplicate subject codes before inserting
+    await batchDeduplicateSubjectCodes(questionsData);
+
     const { data, error } = await supabase
       .from('questions')
       .insert(questionsData)
