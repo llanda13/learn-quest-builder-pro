@@ -50,6 +50,12 @@ const adminMenuItems = [
     description: "Generate tests" 
   },
   { 
+    title: "AI Assistant", 
+    href: "/admin/ai-assistant", 
+    icon: Brain,
+    description: "Academic AI helper" 
+  },
+  { 
     title: "Recently Deleted", 
     href: "/admin/recently-deleted", 
     icon: Archive,

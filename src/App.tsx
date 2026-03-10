@@ -28,6 +28,7 @@ import TOSViewPage from "./pages/teacher/TOSViewPage";
 import TeacherReports from "./pages/teacher/Reports";
 import TeacherSettings from "./pages/teacher/Settings";
 import ProfessionalExport from "./pages/ProfessionalExport";
+import AIAssistant from "./pages/AIAssistant";
 import Tests from "./pages/Tests";
 import Collaboration from "./pages/Collaboration";
 import Quality from "./pages/Quality";
@@ -70,6 +71,7 @@ const App = () => {
                         <Route path="analytics" element={<AdminAnalytics />} />
                         <Route path="recently-deleted" element={<RecentlyDeleted />} />
                         <Route path="generate-test" element={<IntelligentTestGenerator />} />
+                        <Route path="ai-assistant" element={<AIAssistant />} />
                         <Route path="ai-logs" element={<AILogs />} />
                         <Route path="quality" element={<Quality />} />
                         <Route path="test-assembly" element={<TestAssembly />} />
@@ -93,6 +95,7 @@ const App = () => {
                         <Route path="dashboard" element={<TeacherDashboard />} />
                         <Route path="tos" element={<TOSPage />} />
                         <Route path="generate-test" element={<IntelligentTestGenerator />} />
+                        <Route path="ai-assistant" element={<AIAssistant />} />
                         <Route path="my-tests" element={<MyTests />} />
                         <Route path="test/:testId" element={<TestPreview />} />
                         <Route path="generated-test/:testId" element={<GeneratedTestPage />} />
