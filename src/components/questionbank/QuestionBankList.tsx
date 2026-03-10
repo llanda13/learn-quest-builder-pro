@@ -229,7 +229,7 @@ export function QuestionBankList() {
                 <TableHead>Difficulty</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Usage</TableHead>
-                <TableHead>Actions</TableHead>
+                {isAdmin && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
