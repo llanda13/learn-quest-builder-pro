@@ -306,7 +306,7 @@ export function QuestionBankList() {
               ))}
               {filteredQuestions.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={isAdmin ? 8 : 7} className="text-center py-8 text-muted-foreground">
                     No questions found matching your filters.
                   </TableCell>
                 </TableRow>

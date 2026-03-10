@@ -70,7 +70,6 @@ const App = () => {
                         <Route path="users" element={<UserManagement />} />
                         <Route path="analytics" element={<AdminAnalytics />} />
                         <Route path="recently-deleted" element={<RecentlyDeleted />} />
-                        <Route path="generate-test" element={<IntelligentTestGenerator />} />
                         <Route path="ai-assistant" element={<AIAssistant />} />
                         <Route path="ai-logs" element={<AILogs />} />
                         <Route path="quality" element={<Quality />} />
