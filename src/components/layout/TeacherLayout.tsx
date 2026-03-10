@@ -15,7 +15,8 @@ import {
   User,
   BookOpen,
   Menu,
-  X
+  X,
+  Brain
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,12 @@ const teacherMenuItems = [
     href: "/teacher/tos-history", 
     icon: Clock,
     description: "Saved specifications" 
+  },
+  { 
+    title: "AI Assistant", 
+    href: "/teacher/ai-assistant", 
+    icon: Brain,
+    description: "Academic AI helper" 
   },
   { 
     title: "Reports", 
