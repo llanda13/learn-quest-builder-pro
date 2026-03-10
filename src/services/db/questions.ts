@@ -101,6 +101,12 @@ export const Questions = {
       approved: false
     };
 
+    // Deduplicate subject code before inserting
+    await deduplicateSubjectCode(
+      questionData.subject_description,
+      questionData.subject_code
+    );
+
     const { data, error } = await supabase
       .from('questions')
       .insert(questionData)
