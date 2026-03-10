@@ -36,6 +36,7 @@ import TestAssembly from "./pages/TestAssembly";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import { TeacherLayout } from "./components/layout/TeacherLayout";
+import QuestionBankView from "./pages/teacher/QuestionBankView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -107,6 +108,7 @@ const App = () => {
                         <Route path="export" element={<ProfessionalExport />} />
                         <Route path="tests" element={<Tests />} />
                         <Route path="collaboration" element={<Collaboration />} />
+                        <Route path="question-bank" element={<QuestionBankView />} />
                         <Route path="settings" element={<TeacherSettings />} />
                       </Routes>
                     </TeacherLayout>
