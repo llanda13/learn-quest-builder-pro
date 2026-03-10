@@ -44,12 +44,6 @@ const adminMenuItems = [
     description: "Import questions" 
   },
   { 
-    title: "AI Test Generator", 
-    href: "/admin/generate-test", 
-    icon: Sparkles,
-    description: "Generate tests" 
-  },
-  { 
     title: "AI Assistant", 
     href: "/admin/ai-assistant", 
     icon: Brain,
