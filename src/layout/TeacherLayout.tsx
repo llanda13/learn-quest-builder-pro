@@ -43,6 +43,12 @@ const teacherMenuItems = [
     description: "View generated tests" 
   },
   { 
+    title: "Question Bank", 
+    href: "/teacher/question-bank", 
+    icon: Database,
+    description: "Browse questions" 
+  },
+  { 
     title: "TOS History", 
     href: "/teacher/tos-history", 
     icon: Clock,
