@@ -120,14 +120,52 @@ export default function BulkImport({
     maxSize: 50 * 1024 * 1024,
   });
 
+  // --- Flexible column detection helpers ---
+  const normalizeColumnName = (name: string): string =>
+    name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_\s]+/g, ' ').trim();
+
+  const findColumnKey = (headers: string[], possibleNames: string[]): string | null => {
+    const normalizedNames = possibleNames.map(normalizeColumnName);
+    for (const header of headers) {
+      const nh = normalizeColumnName(header);
+      if (normalizedNames.includes(nh)) return header;
+    }
+    for (const header of headers) {
+      const nh = normalizeColumnName(header);
+      if (normalizedNames.some(n => nh.startsWith(n))) return header;
+    }
+    for (const header of headers) {
+      const nh = normalizeColumnName(header);
+      if (normalizedNames.some(n => nh.includes(n))) return header;
+    }
+    return null;
+  };
+
+  /** Detect whether a row looks like an actual question vs a title/header row */
+  const isValidQuestionRow = (row: any, headers: string[]): boolean => {
+    const questionKey = findColumnKey(headers, ['question', 'question text']);
+    const text = questionKey ? String(row[questionKey] || '').trim() : '';
+    if (!text || text.length < 10) return false;
+    // Skip title/header rows (e.g. "Question Bank – IT101: Introduction...")
+    if (/^question\s*bank/i.test(text)) return false;
+    if (/^(#|no\.?|number|question\s*#)$/i.test(text)) return false;
+    return true;
+  };
+
   const previewCSV = (file: File) => {
     Papa.parse(file, {
       header: true,
-      preview: 5,
+      skipEmptyLines: true,
       complete: (results) => {
-        setPreviewData(results.data);
+        const headers = results.meta.fields || [];
+        const validRows = (results.data as any[]).filter(row => isValidQuestionRow(row, headers));
+        setPreviewData(validRows.slice(0, 5));
         setShowPreview(true);
         setImportStep('preview');
+        if (validRows.length < (results.data as any[]).length) {
+          const skipped = (results.data as any[]).length - validRows.length;
+          toast.info(`Skipped ${skipped} non-question row(s) (titles/headers).`);
+        }
       },
       error: (error) => {
         toast.error(`CSV parsing error: ${error.message}`);
