@@ -873,6 +873,7 @@ export default function BulkImport({
                         <td className="p-2">{q.topic}</td>
                         <td className="p-2 capitalize">{q.bloom_level}</td>
                         <td className="p-2 capitalize">{q.difficulty}</td>
+                        <td className="p-2 font-medium">{q.correct_answer || '—'}</td>
                         <td className="p-2">
                           {isEditing ? (
                             <Select value={q.category || ''} onValueChange={(v) => updateVerificationField(idx, 'category', v)}>
