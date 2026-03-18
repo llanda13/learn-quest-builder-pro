@@ -374,26 +374,43 @@ export default function BulkImport({
           Papa.parse(file, { header: true, skipEmptyLines: true, complete: resolve, error: reject });
         });
         rawData = parseResult.data;
+        csvHeaders = parseResult.meta.fields || [];
         setProgress(20);
       }
 
       setCurrentStep('Validating data...');
       const validationErrors: string[] = [];
       const normalizedData: ParsedQuestion[] = [];
+      const headers = csvHeaders.length > 0 ? csvHeaders : (rawData.length > 0 ? Object.keys(rawData[0]) : []);
+      let skippedRows = 0;
 
       rawData.forEach((row, index) => {
-        const rowErrors = validateRow(row, index);
-        validationErrors.push(...rowErrors);
-        if (rowErrors.length === 0) {
-          const normalized = normalizeRow(row);
-          normalizedData.push({
-            ...normalized,
-            created_by: 'teacher',
-            approved: false,
-            needs_review: true,
-          } as ParsedQuestion);
+        // Skip non-question rows (titles, headers, empty)
+        if (!isValidQuestionRow(row, headers)) {
+          skippedRows++;
+          return;
         }
+        const rowErrors = validateRow(row, index, headers);
+        if (rowErrors.length > 0) {
+          validationErrors.push(...rowErrors);
+          return;
+        }
+        const normalized = normalizeRow(row, headers);
+        if (!normalized) {
+          skippedRows++;
+          return;
+        }
+        normalizedData.push({
+          ...normalized,
+          created_by: 'teacher',
+          approved: false,
+          needs_review: true,
+        } as ParsedQuestion);
       });
+
+      if (skippedRows > 0) {
+        toast.info(`Skipped ${skippedRows} invalid/non-question row(s).`);
+      }
 
       if (validationErrors.length > 0) {
         setErrors(validationErrors);
