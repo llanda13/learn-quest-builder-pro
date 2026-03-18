@@ -245,21 +245,26 @@ export default function BulkImport({
     }
   };
 
-  const validateRow = (row: any, index: number): string[] => {
+  const getField = (row: any, headers: string[], possibleNames: string[]): string => {
+    const key = findColumnKey(headers, possibleNames);
+    return key ? String(row[key] || '').trim() : '';
+  };
+
+  const validateRow = (row: any, index: number, headers: string[]): string[] => {
     const errors: string[] = [];
-    if (!row.Question && !row.question_text && !row['Question Text']) {
+    const questionText = getField(row, headers, ['question', 'question text']);
+    if (!questionText) {
       errors.push(`Row ${index + 1}: Missing question text`);
-    }
-    if (!row.Topic && !row.topic) {
-      errors.push(`Row ${index + 1}: Missing topic`);
     }
     return errors;
   };
 
-  const normalizeRow = (row: any): Partial<ParsedQuestion> => {
-    const questionText = row.Question || row.question_text || row['Question Text'] || '';
-    const topic = row.Topic || row.topic || '';
-    const type = (row.Type || row.type || row.question_type || 'mcq').toLowerCase();
+  const normalizeRow = (row: any, headers: string[]): Partial<ParsedQuestion> | null => {
+    const questionText = getField(row, headers, ['question', 'question text']);
+    if (!questionText) return null;
+
+    const topic = getField(row, headers, ['topic']) || selectedTopic || 'General';
+    const type = (getField(row, headers, ['type', 'question type']) || 'mcq').toLowerCase();
 
     let question_type: ParsedQuestion['question_type'] = 'mcq';
     if (type.includes('true') || type.includes('false') || type === 'tf') {
@@ -270,43 +275,81 @@ export default function BulkImport({
       question_type = 'short_answer';
     }
 
+    // Flexible option detection
     let choices: Record<string, string> | undefined;
     if (question_type === 'mcq') {
       choices = {};
       ['A', 'B', 'C', 'D', 'E', 'F'].forEach((letter) => {
-        const choice = row[letter] || row[`Choice ${letter}`] || row[`choice_${letter.toLowerCase()}`];
-        if (choice && choice.trim()) {
-          choices![letter] = choice.trim();
-        }
+        const val = getField(row, headers, [
+          `option ${letter.toLowerCase()}`,
+          `choice ${letter.toLowerCase()}`,
+          letter,
+          `choice_${letter.toLowerCase()}`,
+        ]);
+        if (val) choices![letter] = val;
       });
+
+      // If no choices found via columns, try to extract inline choices from question text
       if (Object.keys(choices).length === 0) {
-        choices = { A: 'Option A', B: 'Option B', C: 'Option C', D: 'Option D' };
+        const inlineMatch = questionText.match(/[A-D]\.\s+/);
+        if (inlineMatch) {
+          const parts = questionText.split(/\s*([A-D])\.\s+/);
+          // parts: [questionPart, 'A', choiceA, 'B', choiceB, ...]
+          for (let i = 1; i < parts.length - 1; i += 2) {
+            choices[parts[i]] = parts[i + 1].trim();
+          }
+        }
+      }
+
+      // Determine question_type based on actual choices found
+      if (Object.keys(choices).length === 0) {
+        question_type = 'essay';
+        choices = undefined;
+      } else if (Object.keys(choices).length < 2) {
+        // Not enough options for MCQ
+        question_type = 'short_answer';
+        choices = undefined;
+      }
+    }
+
+    // --- Correct answer: read from CSV, DO NOT default to 'A' ---
+    const rawCorrect = getField(row, headers, ['correct answer', 'correct', 'answer', 'answer key']);
+    let correctAnswer: string | undefined;
+    if (rawCorrect) {
+      const upper = rawCorrect.toUpperCase().trim();
+      if (/^[A-F]$/.test(upper)) {
+        correctAnswer = upper;
+      } else {
+        correctAnswer = rawCorrect; // essay/short answer
       }
     }
 
     // Read metadata columns from CSV
-    const csvCategory = row.Category || row.category || '';
-    const csvSpecialization = row.Specialization || row.specialization || '';
-    const csvSubjectCode = row.SubjectCode || row.subject_code || row['Subject Code'] || '';
-    const csvSubjectDescription = row.SubjectDescription || row.subject_description || row['Subject Description'] || '';
+    const csvCategory = getField(row, headers, ['category']);
+    const csvSpecialization = getField(row, headers, ['specialization']);
+    const csvSubjectCode = getField(row, headers, ['subject code', 'subjectcode']);
+    const csvSubjectDescription = getField(row, headers, ['subject description', 'subjectdescription']);
 
     return {
       topic: topic.trim(),
-      question_text: questionText.trim(),
+      question_text: questionText,
       question_type,
       choices,
-      correct_answer: row.Correct || row.correct_answer || row['Correct Answer'] || 'A',
-      bloom_level: row.Bloom || row.bloom_level || row['Bloom Level'],
-      difficulty: row.Difficulty || row.difficulty,
-      knowledge_dimension: row.KnowledgeDimension || row.knowledge_dimension || row['Knowledge Dimension'],
-      subject: row.Subject || row.subject || undefined,
-      grade_level: row['Grade Level'] || row.grade_level || undefined,
-      term: row.Term || row.term || undefined,
-      tags: row.Tags ? (Array.isArray(row.Tags) ? row.Tags : row.Tags.split(',').map((t: string) => t.trim())) : undefined,
-      category: csvCategory.trim() || undefined,
-      specialization: csvSpecialization.trim() || undefined,
-      subject_code: csvSubjectCode.trim() || undefined,
-      subject_description: csvSubjectDescription.trim() || undefined,
+      correct_answer: correctAnswer,
+      bloom_level: getField(row, headers, ['bloom', 'bloom level']) || undefined,
+      difficulty: getField(row, headers, ['difficulty']) || undefined,
+      knowledge_dimension: getField(row, headers, ['knowledge dimension', 'knowledgedimension']) || undefined,
+      subject: getField(row, headers, ['subject']) || undefined,
+      grade_level: getField(row, headers, ['grade level']) || undefined,
+      term: getField(row, headers, ['term']) || undefined,
+      tags: (() => {
+        const t = getField(row, headers, ['tags']);
+        return t ? t.split(',').map(s => s.trim()) : undefined;
+      })(),
+      category: csvCategory || undefined,
+      specialization: csvSpecialization || undefined,
+      subject_code: csvSubjectCode || undefined,
+      subject_description: csvSubjectDescription || undefined,
     };
   };
 
