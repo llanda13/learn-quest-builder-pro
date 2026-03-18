@@ -852,6 +852,7 @@ export default function BulkImport({
                     <th className="text-left p-2 font-medium">Topic</th>
                     <th className="text-left p-2 font-medium">Bloom</th>
                     <th className="text-left p-2 font-medium">Difficulty</th>
+                    <th className="text-left p-2 font-medium">Answer</th>
                     <th className="text-left p-2 font-medium">Category</th>
                     <th className="text-left p-2 font-medium">Specialization</th>
                     <th className="text-left p-2 font-medium">Subject Code</th>
