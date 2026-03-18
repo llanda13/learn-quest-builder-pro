@@ -89,25 +89,41 @@ export default function BulkImport({
     checkSimilarity: true
   });
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
+  const resetState = () => {
+    setPreviewData([]);
+    setShowPreview(false);
+    setVerificationData([]);
+    setClassificationResults([]);
+    setResults(null);
+    setErrors([]);
+    setProgress(0);
+    setCurrentStep('');
+    setEditingIndex(null);
+    setImportStep('upload');
+  };
 
-    const isCSV = file.type === 'text/csv' || file.name.endsWith('.csv');
-    const isPDF = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const droppedFile = acceptedFiles[0];
+    if (!droppedFile) return;
+
+    const isCSV = droppedFile.type === 'text/csv' || droppedFile.name.endsWith('.csv');
+    const isPDF = droppedFile.type === 'application/pdf' || droppedFile.name.endsWith('.pdf');
+
+    // Reset all state before processing new file
+    resetState();
 
     if (isCSV) {
-      setFile(file);
-      setErrors([]);
-      previewCSV(file);
+      setFile(droppedFile);
+      console.log('[BulkImport] CSV file received:', droppedFile.name, droppedFile.size, 'bytes');
+      previewCSV(droppedFile);
     } else if (isPDF) {
-      setFile(file);
-      setErrors([]);
-      previewPDF(file);
+      setFile(droppedFile);
+      console.log('[BulkImport] PDF file received:', droppedFile.name, droppedFile.size, 'bytes');
+      previewPDF(droppedFile);
     } else {
       toast.error('Please upload a CSV or PDF file');
     }
-  }, []);
+  }, [selectedTopic]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
