@@ -189,72 +189,133 @@ export default function BulkImport({
     });
   };
 
-  const extractQuestionsFromPDF = async (file: File): Promise<any[]> => {
+  const extractQuestionsFromPDF = async (pdfFile: File): Promise<any[]> => {
     try {
       pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
-      const arrayBuffer = await file.arrayBuffer();
+      const arrayBuffer = await pdfFile.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       
-      let text = '';
+      let fullText = '';
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(' ');
-        text += pageText + '\n';
+        // Preserve line breaks by checking Y positions
+        let lastY: number | null = null;
+        const pageLines: string[] = [];
+        let currentLine = '';
+        for (const item of textContent.items as any[]) {
+          if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+            pageLines.push(currentLine);
+            currentLine = '';
+          }
+          currentLine += (currentLine ? ' ' : '') + item.str;
+          lastY = item.transform[5];
+        }
+        if (currentLine) pageLines.push(currentLine);
+        fullText += pageLines.join('\n') + '\n';
       }
+
+      console.log('[BulkImport] PDF text extracted, length:', fullText.length);
+
       const questions: any[] = [];
-      const questionBlocks = text.split(/\n?\d+\.\s+/).filter(block => block.trim());
+      // Split by numbered questions: "1.", "2.", etc. at start of line
+      const questionBlocks = fullText.split(/\n\s*(\d+)\.\s+/).filter(b => b.trim());
       
-      questionBlocks.forEach((block) => {
-        const lines = block.split('\n').filter(line => line.trim());
-        if (lines.length === 0) return;
-        const questionText = lines[0].trim();
+      // Process pairs: [number, content, number, content, ...]
+      for (let i = 0; i < questionBlocks.length; i++) {
+        const block = questionBlocks[i].trim();
+        // Skip pure numbers (the question number captured by split)
+        if (/^\d+$/.test(block)) continue;
+        
+        // Skip title/header blocks
+        if (/^question\s*bank/i.test(block)) continue;
+        if (block.length < 10) continue;
+
+        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0) continue;
+
+        // First line (or first part before choices) is the question text
+        let questionText = '';
         const choices: Record<string, string> = {};
         let correctAnswer = '';
-        
-        lines.slice(1).forEach(line => {
-          const choiceMatch = line.match(/^([A-F])\.\s*(.+)/);
+
+        // Try to find choices in lines
+        for (const line of lines) {
+          const choiceMatch = line.match(/^([A-D])\.\s*(.+)/i);
           if (choiceMatch) {
-            const [, letter, text] = choiceMatch;
-            choices[letter] = text.trim();
+            const letter = choiceMatch[1].toUpperCase();
+            choices[letter] = choiceMatch[2].trim().replace(/[*✓]+$/, '').trim();
             if (line.includes('*') || line.includes('✓')) {
               correctAnswer = letter;
             }
+          } else if (Object.keys(choices).length === 0) {
+            questionText += (questionText ? ' ' : '') + line;
           }
-        });
-        
+        }
+
+        // If no choices found from lines, try inline pattern: "A. text B. text C. text D. text"
+        if (Object.keys(choices).length === 0 && questionText) {
+          const inlinePattern = /([A-D])\.\s+/gi;
+          if (inlinePattern.test(questionText)) {
+            const parts = questionText.split(/\s*([A-D])\.\s+/i);
+            questionText = parts[0].trim();
+            for (let j = 1; j < parts.length - 1; j += 2) {
+              choices[parts[j].toUpperCase()] = parts[j + 1].trim();
+            }
+          }
+        }
+
+        if (!questionText || questionText.length < 10) continue;
+
+        // Try to find correct answer from "Answer:" or "Correct:" line
+        for (const line of lines) {
+          const ansMatch = line.match(/(?:answer|correct)[:\s]+([A-D])/i);
+          if (ansMatch) {
+            correctAnswer = ansMatch[1].toUpperCase();
+          }
+        }
+
         let questionType: 'mcq' | 'true_false' | 'essay' | 'short_answer' = 'mcq';
         if (Object.keys(choices).length === 0) {
           questionType = 'essay';
-        } else if (Object.keys(choices).length === 2 && 
-                   (choices.A?.toLowerCase().includes('true') || 
+        } else if (Object.keys(choices).length === 2 &&
+                   (choices.A?.toLowerCase().includes('true') ||
                     choices.A?.toLowerCase().includes('false'))) {
           questionType = 'true_false';
         }
-        
+
         questions.push({
           Question: questionText,
           Type: questionType,
-          ...choices,
-          Correct: correctAnswer || 'A',
+          A: choices.A || '',
+          B: choices.B || '',
+          C: choices.C || '',
+          D: choices.D || '',
+          Correct: correctAnswer || '',
           Topic: selectedTopic,
         });
-      });
-      
+      }
+
+      console.log('[BulkImport] PDF questions extracted:', questions.length);
       return questions;
     } catch (error) {
-      console.error('PDF parsing error:', error);
+      console.error('[BulkImport] PDF parsing error:', error);
       throw new Error('Failed to parse PDF content');
     }
   };
 
-  const previewPDF = async (file: File) => {
+  const previewPDF = async (pdfFile: File) => {
     try {
       setCurrentStep('Extracting text from PDF...');
-      const questions = await extractQuestionsFromPDF(file);
+      const questions = await extractQuestionsFromPDF(pdfFile);
+      if (questions.length === 0) {
+        toast.error('No valid questions found in the PDF. Ensure questions are numbered (1., 2., etc.).');
+        return;
+      }
       setPreviewData(questions.slice(0, 5));
       setShowPreview(true);
       setImportStep('preview');
+      console.log('[BulkImport] PDF preview set with', questions.length, 'questions');
       toast.success(`Extracted ${questions.length} questions from PDF`);
     } catch (error) {
       toast.error(`PDF parsing error: ${error instanceof Error ? error.message : 'Unknown error'}`);
