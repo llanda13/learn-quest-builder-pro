@@ -89,25 +89,41 @@ export default function BulkImport({
     checkSimilarity: true
   });
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
+  const resetState = () => {
+    setPreviewData([]);
+    setShowPreview(false);
+    setVerificationData([]);
+    setClassificationResults([]);
+    setResults(null);
+    setErrors([]);
+    setProgress(0);
+    setCurrentStep('');
+    setEditingIndex(null);
+    setImportStep('upload');
+  };
 
-    const isCSV = file.type === 'text/csv' || file.name.endsWith('.csv');
-    const isPDF = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const droppedFile = acceptedFiles[0];
+    if (!droppedFile) return;
+
+    const isCSV = droppedFile.type === 'text/csv' || droppedFile.name.endsWith('.csv');
+    const isPDF = droppedFile.type === 'application/pdf' || droppedFile.name.endsWith('.pdf');
+
+    // Reset all state before processing new file
+    resetState();
 
     if (isCSV) {
-      setFile(file);
-      setErrors([]);
-      previewCSV(file);
+      setFile(droppedFile);
+      console.log('[BulkImport] CSV file received:', droppedFile.name, droppedFile.size, 'bytes');
+      previewCSV(droppedFile);
     } else if (isPDF) {
-      setFile(file);
-      setErrors([]);
-      previewPDF(file);
+      setFile(droppedFile);
+      console.log('[BulkImport] PDF file received:', droppedFile.name, droppedFile.size, 'bytes');
+      previewPDF(droppedFile);
     } else {
       toast.error('Please upload a CSV or PDF file');
     }
-  }, []);
+  }, [selectedTopic]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -152,14 +168,31 @@ export default function BulkImport({
     return true;
   };
 
-  const previewCSV = (file: File) => {
-    Papa.parse(file, {
+  const previewCSV = (csvFile: File) => {
+    Papa.parse(csvFile, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
         const headers = results.meta.fields || [];
+        console.log('[BulkImport] CSV parsed:', results.data.length, 'rows, headers:', headers);
         const validRows = (results.data as any[]).filter(row => isValidQuestionRow(row, headers));
-        setPreviewData(validRows.slice(0, 5));
+        console.log('[BulkImport] Valid question rows:', validRows.length);
+
+        // Build preview with mapped columns for display
+        const previewRows = validRows.slice(0, 5).map(row => {
+          const questionKey = findColumnKey(headers, ['question', 'question text']);
+          const typeKey = findColumnKey(headers, ['type', 'question type']);
+          const correctKey = findColumnKey(headers, ['correct answer', 'correct', 'answer', 'answer key']);
+          const topicKey = findColumnKey(headers, ['topic']);
+          return {
+            Question: questionKey ? String(row[questionKey] || '').substring(0, 100) + (String(row[questionKey] || '').length > 100 ? '...' : '') : '',
+            Type: typeKey ? String(row[typeKey] || '') : 'mcq',
+            Correct: correctKey ? String(row[correctKey] || '') : '',
+            Topic: topicKey ? String(row[topicKey] || '') : selectedTopic,
+          };
+        });
+
+        setPreviewData(previewRows);
         setShowPreview(true);
         setImportStep('preview');
         if (validRows.length < (results.data as any[]).length) {
@@ -173,72 +206,133 @@ export default function BulkImport({
     });
   };
 
-  const extractQuestionsFromPDF = async (file: File): Promise<any[]> => {
+  const extractQuestionsFromPDF = async (pdfFile: File): Promise<any[]> => {
     try {
       pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
-      const arrayBuffer = await file.arrayBuffer();
+      const arrayBuffer = await pdfFile.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       
-      let text = '';
+      let fullText = '';
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(' ');
-        text += pageText + '\n';
+        // Preserve line breaks by checking Y positions
+        let lastY: number | null = null;
+        const pageLines: string[] = [];
+        let currentLine = '';
+        for (const item of textContent.items as any[]) {
+          if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+            pageLines.push(currentLine);
+            currentLine = '';
+          }
+          currentLine += (currentLine ? ' ' : '') + item.str;
+          lastY = item.transform[5];
+        }
+        if (currentLine) pageLines.push(currentLine);
+        fullText += pageLines.join('\n') + '\n';
       }
+
+      console.log('[BulkImport] PDF text extracted, length:', fullText.length);
+
       const questions: any[] = [];
-      const questionBlocks = text.split(/\n?\d+\.\s+/).filter(block => block.trim());
+      // Split by numbered questions: "1.", "2.", etc. at start of line
+      const questionBlocks = fullText.split(/\n\s*(\d+)\.\s+/).filter(b => b.trim());
       
-      questionBlocks.forEach((block) => {
-        const lines = block.split('\n').filter(line => line.trim());
-        if (lines.length === 0) return;
-        const questionText = lines[0].trim();
+      // Process pairs: [number, content, number, content, ...]
+      for (let i = 0; i < questionBlocks.length; i++) {
+        const block = questionBlocks[i].trim();
+        // Skip pure numbers (the question number captured by split)
+        if (/^\d+$/.test(block)) continue;
+        
+        // Skip title/header blocks
+        if (/^question\s*bank/i.test(block)) continue;
+        if (block.length < 10) continue;
+
+        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0) continue;
+
+        // First line (or first part before choices) is the question text
+        let questionText = '';
         const choices: Record<string, string> = {};
         let correctAnswer = '';
-        
-        lines.slice(1).forEach(line => {
-          const choiceMatch = line.match(/^([A-F])\.\s*(.+)/);
+
+        // Try to find choices in lines
+        for (const line of lines) {
+          const choiceMatch = line.match(/^([A-D])\.\s*(.+)/i);
           if (choiceMatch) {
-            const [, letter, text] = choiceMatch;
-            choices[letter] = text.trim();
+            const letter = choiceMatch[1].toUpperCase();
+            choices[letter] = choiceMatch[2].trim().replace(/[*✓]+$/, '').trim();
             if (line.includes('*') || line.includes('✓')) {
               correctAnswer = letter;
             }
+          } else if (Object.keys(choices).length === 0) {
+            questionText += (questionText ? ' ' : '') + line;
           }
-        });
-        
+        }
+
+        // If no choices found from lines, try inline pattern: "A. text B. text C. text D. text"
+        if (Object.keys(choices).length === 0 && questionText) {
+          const inlinePattern = /([A-D])\.\s+/gi;
+          if (inlinePattern.test(questionText)) {
+            const parts = questionText.split(/\s*([A-D])\.\s+/i);
+            questionText = parts[0].trim();
+            for (let j = 1; j < parts.length - 1; j += 2) {
+              choices[parts[j].toUpperCase()] = parts[j + 1].trim();
+            }
+          }
+        }
+
+        if (!questionText || questionText.length < 10) continue;
+
+        // Try to find correct answer from "Answer:" or "Correct:" line
+        for (const line of lines) {
+          const ansMatch = line.match(/(?:answer|correct)[:\s]+([A-D])/i);
+          if (ansMatch) {
+            correctAnswer = ansMatch[1].toUpperCase();
+          }
+        }
+
         let questionType: 'mcq' | 'true_false' | 'essay' | 'short_answer' = 'mcq';
         if (Object.keys(choices).length === 0) {
           questionType = 'essay';
-        } else if (Object.keys(choices).length === 2 && 
-                   (choices.A?.toLowerCase().includes('true') || 
+        } else if (Object.keys(choices).length === 2 &&
+                   (choices.A?.toLowerCase().includes('true') ||
                     choices.A?.toLowerCase().includes('false'))) {
           questionType = 'true_false';
         }
-        
+
         questions.push({
           Question: questionText,
           Type: questionType,
-          ...choices,
-          Correct: correctAnswer || 'A',
+          A: choices.A || '',
+          B: choices.B || '',
+          C: choices.C || '',
+          D: choices.D || '',
+          Correct: correctAnswer || '',
           Topic: selectedTopic,
         });
-      });
-      
+      }
+
+      console.log('[BulkImport] PDF questions extracted:', questions.length);
       return questions;
     } catch (error) {
-      console.error('PDF parsing error:', error);
+      console.error('[BulkImport] PDF parsing error:', error);
       throw new Error('Failed to parse PDF content');
     }
   };
 
-  const previewPDF = async (file: File) => {
+  const previewPDF = async (pdfFile: File) => {
     try {
       setCurrentStep('Extracting text from PDF...');
-      const questions = await extractQuestionsFromPDF(file);
+      const questions = await extractQuestionsFromPDF(pdfFile);
+      if (questions.length === 0) {
+        toast.error('No valid questions found in the PDF. Ensure questions are numbered (1., 2., etc.).');
+        return;
+      }
       setPreviewData(questions.slice(0, 5));
       setShowPreview(true);
       setImportStep('preview');
+      console.log('[BulkImport] PDF preview set with', questions.length, 'questions');
       toast.success(`Extracted ${questions.length} questions from PDF`);
     } catch (error) {
       toast.error(`PDF parsing error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -367,15 +461,19 @@ export default function BulkImport({
 
       if (file.name.endsWith('.pdf')) {
         setCurrentStep('Extracting text from PDF...');
+        console.log('[BulkImport] Re-parsing PDF file for classification:', file.name);
         rawData = await extractQuestionsFromPDF(file);
+        console.log('[BulkImport] PDF re-parse produced', rawData.length, 'rows');
         setProgress(20);
       } else {
         setCurrentStep('Parsing CSV file...');
+        console.log('[BulkImport] Re-parsing CSV file for classification:', file.name);
         const parseResult = await new Promise<Papa.ParseResult<any>>((resolve, reject) => {
           Papa.parse(file, { header: true, skipEmptyLines: true, complete: resolve, error: reject });
         });
         rawData = parseResult.data;
         csvHeaders = parseResult.meta.fields || [];
+        console.log('[BulkImport] CSV re-parse produced', rawData.length, 'rows, headers:', csvHeaders);
         setProgress(20);
       }
 
