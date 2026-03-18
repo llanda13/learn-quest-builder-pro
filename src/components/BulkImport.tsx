@@ -168,14 +168,31 @@ export default function BulkImport({
     return true;
   };
 
-  const previewCSV = (file: File) => {
-    Papa.parse(file, {
+  const previewCSV = (csvFile: File) => {
+    Papa.parse(csvFile, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
         const headers = results.meta.fields || [];
+        console.log('[BulkImport] CSV parsed:', results.data.length, 'rows, headers:', headers);
         const validRows = (results.data as any[]).filter(row => isValidQuestionRow(row, headers));
-        setPreviewData(validRows.slice(0, 5));
+        console.log('[BulkImport] Valid question rows:', validRows.length);
+
+        // Build preview with mapped columns for display
+        const previewRows = validRows.slice(0, 5).map(row => {
+          const questionKey = findColumnKey(headers, ['question', 'question text']);
+          const typeKey = findColumnKey(headers, ['type', 'question type']);
+          const correctKey = findColumnKey(headers, ['correct answer', 'correct', 'answer', 'answer key']);
+          const topicKey = findColumnKey(headers, ['topic']);
+          return {
+            Question: questionKey ? String(row[questionKey] || '').substring(0, 100) + (String(row[questionKey] || '').length > 100 ? '...' : '') : '',
+            Type: typeKey ? String(row[typeKey] || '') : 'mcq',
+            Correct: correctKey ? String(row[correctKey] || '') : '',
+            Topic: topicKey ? String(row[topicKey] || '') : selectedTopic,
+          };
+        });
+
+        setPreviewData(previewRows);
         setShowPreview(true);
         setImportStep('preview');
         if (validRows.length < (results.data as any[]).length) {
