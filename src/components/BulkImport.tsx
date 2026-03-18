@@ -461,15 +461,19 @@ export default function BulkImport({
 
       if (file.name.endsWith('.pdf')) {
         setCurrentStep('Extracting text from PDF...');
+        console.log('[BulkImport] Re-parsing PDF file for classification:', file.name);
         rawData = await extractQuestionsFromPDF(file);
+        console.log('[BulkImport] PDF re-parse produced', rawData.length, 'rows');
         setProgress(20);
       } else {
         setCurrentStep('Parsing CSV file...');
+        console.log('[BulkImport] Re-parsing CSV file for classification:', file.name);
         const parseResult = await new Promise<Papa.ParseResult<any>>((resolve, reject) => {
           Papa.parse(file, { header: true, skipEmptyLines: true, complete: resolve, error: reject });
         });
         rawData = parseResult.data;
         csvHeaders = parseResult.meta.fields || [];
+        console.log('[BulkImport] CSV re-parse produced', rawData.length, 'rows, headers:', csvHeaders);
         setProgress(20);
       }
 
