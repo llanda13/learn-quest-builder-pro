@@ -363,6 +363,7 @@ export default function BulkImport({
 
     try {
       let rawData: any[];
+      let csvHeaders: string[] = [];
 
       if (file.name.endsWith('.pdf')) {
         setCurrentStep('Extracting text from PDF...');
