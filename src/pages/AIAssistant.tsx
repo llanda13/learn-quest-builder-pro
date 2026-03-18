@@ -21,8 +21,7 @@ const SUGGESTION_CHIPS = [
   "What are effective assessment strategies?",
 ];
 
-const SUPABASE_URL = "https://lohmzywgbkntvpuygvfx.supabase.co";
-const AI_CHAT_URL = `${SUPABASE_URL}/functions/v1/ai-assistant`;
+const AI_CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
 
 export default function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -77,10 +76,8 @@ export default function AIAssistant() {
         const data = await resp.json();
         if (data.refusal) {
           setMessages(prev => [...prev, { role: "assistant", content: data.message }]);
-        } else if (data.error) {
-          throw new Error(data.error);
+          return;
         }
-        return;
       }
 
       // Handle streaming SSE response

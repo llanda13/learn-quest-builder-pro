@@ -54,22 +54,6 @@ serve(async (req) => {
 
     switch (action) {
       case 'validate': {
-        // Whitelist allowed classification fields to prevent mass assignment
-        const safeClassification: Record<string, unknown> = {};
-        const allowedFields = ['bloom_level', 'knowledge_dimension', 'difficulty', 'cognitive_level'];
-        if (classification && typeof classification === 'object') {
-          for (const field of allowedFields) {
-            if (field in classification && typeof classification[field] === 'string') {
-              safeClassification[field] = classification[field];
-            }
-          }
-        }
-
-        // Validate confidence is a number between 0 and 1
-        const safeConfidence = typeof confidence === 'number'
-          ? Math.min(1, Math.max(0, confidence))
-          : 0;
-
         // Get original classification
         const { data: question } = await supabaseClient
           .from('questions')
@@ -83,22 +67,22 @@ serve(async (req) => {
           .insert({
             question_id: questionId,
             original_classification: question,
-            validated_classification: safeClassification,
+            validated_classification: classification,
             validator_id: user.id,
-            validation_confidence: safeConfidence,
-            notes: typeof notes === 'string' ? notes.slice(0, 2000) : null,
+            validation_confidence: confidence,
+            notes,
             validation_type: 'manual'
           });
 
-        // Update question with only whitelisted fields
+        // Update question
         await supabaseClient
           .from('questions')
           .update({
-            ...safeClassification,
+            ...classification,
             validation_status: 'validated',
             validated_by: user.id,
             validation_timestamp: new Date().toISOString(),
-            classification_confidence: safeConfidence,
+            classification_confidence: confidence,
             needs_review: false
           })
           .eq('id', questionId);

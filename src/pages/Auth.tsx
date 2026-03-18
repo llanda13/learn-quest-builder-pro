@@ -62,7 +62,6 @@ export default function Auth() {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const fullName = formData.get('fullName') as string;
-    const college = formData.get('college') as string;
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters long');
@@ -70,7 +69,7 @@ export default function Auth() {
       return;
     }
 
-    const { error } = await signUp(email, password, fullName, college);
+    const { error } = await signUp(email, password, fullName);
     
     if (error) {
       if (error.message.includes('already registered')) {
@@ -148,7 +147,7 @@ export default function Auth() {
               </div>
             </TabsContent>
             
-             <TabsContent value="signup">
+            <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Full Name</Label>
@@ -162,9 +161,9 @@ export default function Auth() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
-                    id="signup-email"
+                    id="email"
                     name="email"
                     type="email"
                     placeholder="teacher@school.edu"
@@ -173,19 +172,9 @@ export default function Auth() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="college">College</Label>
+                  <Label htmlFor="password">Password</Label>
                   <Input
-                    id="college"
-                    name="college"
-                    type="text"
-                    placeholder="e.g. College of Education"
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
+                    id="password"
                     name="password"
                     type="password"
                     placeholder="Minimum 6 characters"

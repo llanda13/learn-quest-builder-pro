@@ -28,7 +28,7 @@ interface UserSettings {
   };
   profile: {
     fullName: string;
-    college: string;
+    institution: string;
     subject: string;
   };
 }
@@ -50,7 +50,7 @@ const defaultSettings: UserSettings = {
   },
   profile: {
     fullName: '',
-    college: '',
+    institution: '',
     subject: ''
   }
 };
@@ -189,12 +189,12 @@ const Settings = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="college">College</Label>
+                <Label htmlFor="institution">Institution</Label>
                 <Input
-                  id="college"
-                  placeholder="e.g., College of Education"
-                  value={settings.profile.college}
-                  onChange={(e) => updateSettings('profile', 'college', e.target.value)}
+                  id="institution"
+                  placeholder="e.g., University of Education"
+                  value={settings.profile.institution}
+                  onChange={(e) => updateSettings('profile', 'institution', e.target.value)}
                 />
               </div>
             </div>
